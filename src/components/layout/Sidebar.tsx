@@ -31,17 +31,17 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-gray-200 bg-white transition-all duration-200 ${
+      className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-gray-200 bg-white transition-all duration-200 dark:border-gray-800 dark:bg-gray-900 ${
         open ? 'w-64' : 'w-[84px]'
       }`}
     >
-      <div className="flex h-16 items-center gap-2 border-b border-gray-100 px-5">
+      <div className="flex h-16 items-center gap-2 border-b border-gray-100 px-5 dark:border-gray-800">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
           5S
         </div>
         {open && (
           <div className="leading-tight">
-            <p className="text-sm font-semibold text-gray-800">QLCL 5S</p>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">QLCL 5S</p>
             <p className="text-xs text-gray-400">BV Đa khoa Thái Bình</p>
           </div>
         )}
@@ -64,8 +64,8 @@ export default function Sidebar() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-brand-50 text-brand-600'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
+                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
                   } ${!open && 'justify-center'}`
                 }
               >

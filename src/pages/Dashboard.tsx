@@ -21,18 +21,18 @@ const recentEvaluations = [
 ]
 
 const badgeClass: Record<string, string> = {
-  'Xuất sắc': 'bg-green-50 text-green-700',
-  'Tốt': 'bg-blue-50 text-blue-700',
-  'Khá': 'bg-yellow-50 text-yellow-700',
-  'Trung bình': 'bg-orange-50 text-orange-700',
+  'Xuất sắc': 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+  'Tốt': 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  'Khá': 'bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400',
+  'Trung bình': 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400',
 }
 
 export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">Analytics — Tổng quan chất lượng 5S</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Analytics — Tổng quan chất lượng 5S</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Số liệu tổng hợp toàn viện, cập nhật theo đợt đánh giá gần nhất.
         </p>
       </div>
@@ -51,7 +51,7 @@ export default function Dashboard() {
         </div>
         <ChartCard title="Mục tiêu tỷ lệ đạt" subtitle="Toàn viện — đợt hiện tại">
           <TargetChart />
-          <p className="mt-2 text-center text-sm text-gray-500">
+          <p className="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
             Mục tiêu 90% · Hiện tại 88%
           </p>
         </ChartCard>
@@ -63,7 +63,7 @@ export default function Dashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-xs uppercase text-gray-400">
+                  <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                     <th className="pb-3 pr-4 font-medium">Khoa/Phòng</th>
                     <th className="pb-3 pr-4 font-medium">Vị trí</th>
                     <th className="pb-3 pr-4 font-medium">% Đạt</th>
@@ -72,10 +72,10 @@ export default function Dashboard() {
                 </thead>
                 <tbody>
                   {recentEvaluations.map((r) => (
-                    <tr key={r.khoa} className="border-b border-gray-50 last:border-0">
-                      <td className="py-3 pr-4 font-medium text-gray-700">{r.khoa}</td>
-                      <td className="py-3 pr-4 text-gray-500">{r.vitri}</td>
-                      <td className="py-3 pr-4 text-gray-500">{r.pct}%</td>
+                    <tr key={r.khoa} className="border-b border-gray-50 last:border-0 dark:border-gray-800">
+                      <td className="py-3 pr-4 font-medium text-gray-700 dark:text-gray-200">{r.khoa}</td>
+                      <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">{r.vitri}</td>
+                      <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">{r.pct}%</td>
                       <td className="py-3">
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-medium ${badgeClass[r.xeploai]}`}

@@ -7,7 +7,7 @@ export default function AppLayout() {
   const open = useAppSelector((s) => s.ui.sidebarOpen)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar />
       <div
         className={`transition-all duration-200 ${open ? 'ml-64' : 'ml-[84px]'}`}
