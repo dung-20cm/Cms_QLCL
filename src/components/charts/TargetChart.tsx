@@ -3,9 +3,12 @@ import Chart from 'react-apexcharts'
 import type { ApexOptions } from 'apexcharts'
 import { useAppSelector } from '../../app/hooks'
 
-const series = [88]
+interface TargetChartProps {
+  value?: number
+}
 
-export default function TargetChart() {
+export default function TargetChart({ value = 0 }: TargetChartProps) {
+  const series = [value]
   const mode = useAppSelector((s) => s.theme.mode)
   const isDark = mode === 'dark'
 

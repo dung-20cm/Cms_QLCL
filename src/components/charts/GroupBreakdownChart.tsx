@@ -5,9 +5,12 @@ import { useAppSelector } from '../../app/hooks'
 
 const groups = ['S1 - Sàng lọc', 'S2 - Sắp xếp', 'S3 - Sạch sẽ', 'S4 - Săn sóc', 'S5 - Sẵn sàng']
 
-const series = [{ name: 'Tỷ lệ đạt (%)', data: [86, 82, 90, 78, 84] }]
+interface GroupBreakdownChartProps {
+  data?: number[] // tỷ lệ đạt S1..S5
+}
 
-export default function GroupBreakdownChart() {
+export default function GroupBreakdownChart({ data = [0, 0, 0, 0, 0] }: GroupBreakdownChartProps) {
+  const series = [{ name: 'Tỷ lệ đạt (%)', data }]
   const mode = useAppSelector((s) => s.theme.mode)
   const isDark = mode === 'dark'
 

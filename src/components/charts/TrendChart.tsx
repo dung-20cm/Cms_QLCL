@@ -3,14 +3,19 @@ import Chart from 'react-apexcharts'
 import type { ApexOptions } from 'apexcharts'
 import { useAppSelector } from '../../app/hooks'
 
-const months = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+interface TrendChartProps {
+  categories?: string[]
+  series?: { name: string; data: number[] }[]
+}
 
-const series = [
-  { name: 'Tỷ lệ đạt trung bình (%)', data: [72, 75, 78, 74, 81, 85, 88] },
-  { name: 'Số khoa tham gia đánh giá', data: [40, 42, 45, 44, 47, 48, 49] },
+const defaultMonths = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+
+const defaultSeries = [
+  { name: 'Tỷ lệ đạt trung bình (%)', data: [0, 0, 0, 0, 0, 0, 0] },
+  { name: 'Số khoa tham gia đánh giá', data: [0, 0, 0, 0, 0, 0, 0] },
 ]
 
-export default function TrendChart() {
+export default function TrendChart({ categories = defaultMonths, series = defaultSeries }: TrendChartProps) {
   const mode = useAppSelector((s) => s.theme.mode)
   const isDark = mode === 'dark'
 
@@ -32,7 +37,7 @@ export default function TrendChart() {
       },
       grid: { borderColor: isDark ? '#1f2937' : '#f1f2f4' },
       xaxis: {
-        categories: months,
+        categories,
         axisBorder: { show: false },
         axisTicks: { show: false },
         labels: { style: { colors: isDark ? '#9ca3af' : '#6b7280' } },
@@ -45,7 +50,7 @@ export default function TrendChart() {
       },
       tooltip: { theme: mode, y: { formatter: (v) => `${v}` } },
     }),
-    [mode, isDark],
+    [mode, isDark, categories],
   )
 
   return <Chart options={options} series={series} type="area" height={310} />

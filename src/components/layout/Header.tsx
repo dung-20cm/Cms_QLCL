@@ -1,11 +1,19 @@
-import { Menu, Search, Bell, Sun, Moon } from 'lucide-react'
+import { Menu, Search, Bell, Sun, Moon, LogOut } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../../app/hooks'
 import { toggleSidebar } from '../../features/ui/uiSlice'
 import { toggleTheme } from '../../features/theme/themeSlice'
+import { logout } from '../../features/auth/authSlice'
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  const last = parts[parts.length - 1] || ''
+  return last.slice(0, 2).toUpperCase()
+}
 
 export default function Header() {
   const dispatch = useAppDispatch()
   const mode = useAppSelector((s) => s.theme.mode)
+  const user = useAppSelector((s) => s.auth.user)
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900 sm:px-6">
@@ -51,13 +59,23 @@ export default function Header() {
         </button>
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
-            QL
+            {user ? getInitials(user.username) : '..'}
           </div>
           <div className="hidden text-left sm:block">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Phòng QLCL</p>
-            <p className="text-xs text-gray-400">Admin</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{user?.username ?? 'Đang tải...'}</p>
+            <p className="text-xs text-gray-400">{user?.email}</p>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => dispatch(logout())}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+          aria-label="Đăng xuất"
+          title="Đăng xuất"
+        >
+          <LogOut size={18} />
+        </button>
       </div>
     </header>
   )
