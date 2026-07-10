@@ -13,6 +13,7 @@ import {
   EmptyState,
   useCatalog,
 } from '../components/ui/PageShell'
+import SearchableSelect from '../components/ui/SearchableSelect'
 import ChartCard from '../components/ui/ChartCard'
 import { fetchDanhGiaList } from '../features/qlcl/api'
 import type { DanhGia } from '../features/qlcl/types'
@@ -187,12 +188,12 @@ export default function XuHuong() {
         <Field label="Từ ngày"><input type="date" className={inputCls} value={fFrom} onChange={(e) => setFFrom(e.target.value)} /></Field>
         <Field label="Đến ngày"><input type="date" className={inputCls} value={fTo} onChange={(e) => setFTo(e.target.value)} /></Field>
         <Field label="Khoa / Phòng">
-          <select className={inputCls} value={fKhoa} onChange={(e) => setFKhoa(e.target.value)}>
-            <option value="">— Tất cả —</option>
-            {khoaList.map((k) => (
-              <option key={k.id} value={k.id}>{k.ten_khoa}</option>
-            ))}
-          </select>
+          <SearchableSelect
+            value={fKhoa}
+            onChange={(v) => setFKhoa(v)}
+            options={khoaList.map((k) => ({ value: String(k.id), label: k.ten_khoa }))}
+            placeholder="— Tất cả —"
+          />
         </Field>
         <Field label="Vị trí">
           <select className={inputCls} value={fVitri} onChange={(e) => setFVitri(e.target.value)}>

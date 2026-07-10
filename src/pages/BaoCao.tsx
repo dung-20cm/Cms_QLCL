@@ -11,6 +11,7 @@ import {
   EmptyState,
   useCatalog,
 } from '../components/ui/PageShell'
+import SearchableSelect from '../components/ui/SearchableSelect'
 import { fetchDanhGiaList, fetchKhacPhucList } from '../features/qlcl/api'
 import type { DanhGia, KhacPhuc } from '../features/qlcl/types'
 import { xepLoaiFromPct } from '../features/qlcl/types'
@@ -169,12 +170,12 @@ export default function BaoCao() {
                 </select>
               </Field>
               <Field label="Lọc theo khoa (tuỳ chọn)">
-                <select className={inputCls} value={selKhoa} onChange={(e) => setSelKhoa(e.target.value)}>
-                  <option value="">— Tất cả khoa —</option>
-                  {khoaList.map((k) => (
-                    <option key={k.id} value={k.id}>{k.ten_khoa}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  value={selKhoa}
+                  onChange={(v) => setSelKhoa(v)}
+                  options={khoaList.map((k) => ({ value: String(k.id), label: k.ten_khoa }))}
+                  placeholder="— Tất cả khoa —"
+                />
               </Field>
             </>
           )}

@@ -181,17 +181,31 @@ export interface Anh5sTuan {
   vi_tri?: Anh5sTuanViTri[]
 }
 
+// "Kết quả" gán cho ảnh gửi độc lập (không qua Bảng kiểm) — khớp nhãn dùng ở Bảng kiểm/legacy
+export const KET_QUA_ANH_OPTIONS = ['Đạt tốt', 'Đạt', 'Chưa đạt'] as const
+export type KetQuaAnh = (typeof KET_QUA_ANH_OPTIONS)[number]
+
 export interface PhotoGallery {
   id: number
-  danh_gia_id: number
+  danh_gia_id: number | null
   checklist_item_id: number | null
   url_anh: string
   ten_file: string | null
   mime_type: string | null
+  // Chỉ có giá trị khi ảnh gửi độc lập (danh_gia_id = null)
+  khoa_id: number | null
+  vitri_type_id: number | null
+  ngay_chup: string | null
+  nguoi_gui_id: number | null
+  ket_qua: string | null
+  ghi_chu: string | null
   active: number
   createdAt: string
   danh_gia?: DanhGia
   checklist_item?: ChecklistItem | null
+  khoa?: { id: number; ten_khoa: string } | null
+  vitri_type?: { id: number; ten_vitri: string } | null
+  nguoi_gui?: { id: number; username: string; email: string } | null
 }
 
 // Đợt đánh giá (bảng dot_danh_gia) — cấu hình các đợt/chiến dịch đánh giá 5S

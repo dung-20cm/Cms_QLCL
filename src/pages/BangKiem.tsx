@@ -12,6 +12,7 @@ import {
   ErrorBanner,
   useCatalog,
 } from '../components/ui/PageShell'
+import SearchableSelect from '../components/ui/SearchableSelect'
 import {
   fetchChecklistItems,
   fetchDotDanhGiaList,
@@ -240,12 +241,12 @@ export default function BangKiem() {
       <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Field label="Khoa / Phòng / Trung tâm">
-            <select className={inputCls} value={khoaId} onChange={(e) => setKhoaId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">— Chọn khoa —</option>
-              {khoaList.map((k) => (
-                <option key={k.id} value={k.id}>{k.ten_khoa}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={khoaId}
+              onChange={setKhoaId}
+              options={khoaList.map((k) => ({ value: k.id, label: k.ten_khoa }))}
+              placeholder="— Chọn khoa —"
+            />
           </Field>
           <Field label={`Vị trí đánh giá (chọn → bảng kiểm tự đổi)${khoaId !== '' && hasConfig ? ' — theo cấu hình khoa' : ''}`}>
             <select className={inputCls} value={vitriTypeId} onChange={(e) => setVitriTypeId(e.target.value ? Number(e.target.value) : '')}>

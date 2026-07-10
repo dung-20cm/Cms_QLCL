@@ -12,6 +12,7 @@ import {
   ErrorBanner,
   useCatalog,
 } from '../components/ui/PageShell'
+import SearchableSelect from '../components/ui/SearchableSelect'
 import {
   fetchAnh5sTuanList,
   createUpdateAnh5sTuan,
@@ -315,12 +316,12 @@ export default function Zalo5S() {
       >
         <div className="grid gap-4">
           <Field label="Khoa / Phòng / TT">
-            <select className={inputCls} value={mKhoa} onChange={(e) => setMKhoa(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">— Chọn khoa —</option>
-              {khoaList.map((k) => (
-                <option key={k.id} value={k.id}>{k.ten_khoa}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={mKhoa}
+              onChange={setMKhoa}
+              options={khoaList.map((k) => ({ value: k.id, label: k.ten_khoa }))}
+              placeholder="— Chọn khoa —"
+            />
           </Field>
           <Field label="Tuần (tự quy về thứ 2 đầu tuần)">
             <input type="date" className={inputCls} value={mTuan} onChange={(e) => setMTuan(e.target.value)} />

@@ -17,6 +17,7 @@ import {
   Building2,
   MapPin,
   CalendarRange,
+  ListChecks,
 } from "lucide-react";
 import { useAppSelector } from "../../app/hooks";
 import {
@@ -66,6 +67,7 @@ const navItems: NavItem[] = [
       { to: "/cau-hinh/khoa-vitri", label: "Khoa – vị trí", icon: Building2 },
       { to: "/cau-hinh/vi-tri", label: "Vị trí đánh giá", icon: MapPin },
       { to: "/cau-hinh/dot-danh-gia", label: "Đợt đánh giá", icon: CalendarRange },
+      { to: "/cau-hinh/tieu-chi", label: "Tiêu chí", icon: ListChecks },
     ],
   },
 ];

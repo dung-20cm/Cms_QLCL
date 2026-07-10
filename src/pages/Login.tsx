@@ -67,7 +67,8 @@ export default function Login() {
             Đăng nhập
           </h1>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Nhập tên đăng nhập và mật khẩu để vào hệ thống quản lý chất lượng 5S.
+            Nhập tên đăng nhập và mật khẩu để vào hệ thống quản lý chất lượng
+            5S.
           </p>
 
           <form className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
@@ -172,11 +173,11 @@ export default function Login() {
             5S
           </div>
           <h2 className="text-2xl font-semibold text-white">
-            Dashboard Quản lý chất lượng 5S
+            Bộ công cụ đánh giá điện tử 5S
           </h2>
           <p className="mt-3 max-w-sm text-sm text-white/60">
-            Bệnh viện Đa khoa Thái Bình — theo dõi đánh giá, xu hướng và tiến độ
-            khắc phục 5S toàn viện.
+            Bệnh viện Đa khoa Thái Bình — Phòng Quản lý Chất lượng Theo dõi lịch
+            đánh giá, xu hướng và tiến độ khắc phục 5S toàn viện.
           </p>
         </div>
       </div>

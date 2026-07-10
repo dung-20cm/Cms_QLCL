@@ -16,6 +16,7 @@ import TaiKhoan from "./pages/TaiKhoan";
 import CauHinhKhoaViTri from "./pages/cauhinh/CauHinhKhoaViTri";
 import CauHinhViTri from "./pages/cauhinh/CauHinhViTri";
 import CauHinhDotDanhGia from "./pages/cauhinh/CauHinhDotDanhGia";
+import CauHinhTieuChi from "./pages/cauhinh/CauHinhTieuChi";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import GuestRoute from "./components/auth/GuestRoute";
 import RequirePermission from "./components/auth/RequirePermission";
@@ -136,7 +137,7 @@ function App() {
                 </RequirePermission>
               }
             />
-            {/* Cấu hình: 3 tab con trong sidebar */}
+            {/* Cấu hình: 4 tab con trong sidebar */}
             <Route path="/cau-hinh" element={<Navigate to="/cau-hinh/khoa-vitri" replace />} />
             <Route
               path="/cau-hinh/khoa-vitri"
@@ -159,6 +160,14 @@ function App() {
               element={
                 <RequirePermission slug={PERM_CAU_HINH}>
                   <CauHinhDotDanhGia />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/cau-hinh/tieu-chi"
+              element={
+                <RequirePermission slug={PERM_CAU_HINH}>
+                  <CauHinhTieuChi />
                 </RequirePermission>
               }
             />

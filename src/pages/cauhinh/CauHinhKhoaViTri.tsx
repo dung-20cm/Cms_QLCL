@@ -10,6 +10,7 @@ import {
   ErrorBanner,
   useCatalog,
 } from '../../components/ui/PageShell'
+import SearchableSelect from '../../components/ui/SearchableSelect'
 import { fetchVitriChiTietList, createUpdateVitriChiTiet, deleteVitriChiTiet } from '../../features/qlcl/api'
 import type { VitriChiTiet } from '../../features/qlcl/types'
 
@@ -189,16 +190,12 @@ export default function CauHinhKhoaViTri() {
 
       <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <Field label="Chọn Khoa / Phòng / Trung tâm cần cấu hình" className="max-w-md">
-          <select
-            className={inputCls}
+          <SearchableSelect
             value={khoaId}
-            onChange={(e) => setKhoaId(e.target.value ? Number(e.target.value) : '')}
-          >
-            <option value="">— Chọn khoa —</option>
-            {khoaList.map((k) => (
-              <option key={k.id} value={k.id}>{k.ten_khoa}</option>
-            ))}
-          </select>
+            onChange={setKhoaId}
+            options={khoaList.map((k) => ({ value: k.id, label: k.ten_khoa }))}
+            placeholder="— Chọn khoa —"
+          />
         </Field>
         <p className="mt-3 text-xs text-gray-400">
           {selectedKhoa ? (
