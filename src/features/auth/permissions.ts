@@ -13,11 +13,14 @@ export const PERMISSION = {
   XEM_TONG_HOP_TAT_CA_KHOA: 'xem-tong-hop-tat-ca-khoa',
   DANH_GIA_CAC_KHOA: 'danh-gia-cac-khoa',
   XEM_TIEN_DO_KHAC_PHUC_TAT_CA_KHOA: 'xem-tien-do-khac-phuc-tat-ca-khoa',
+  QUAN_LY_ANH_5S_TAT_CA_KHOA: 'quan-ly-anh-5s-tat-ca-khoa',
 
   // Trưởng khoa
+  QUAN_LY_BANG_KIEM_KHOA_MINH: 'quan-ly-bang-kiem-khoa-minh',
   PHAN_CONG_DANH_GIA: 'phan-cong-danh-gia',
   XEM_TONG_HOP_KHOA_MINH: 'xem-tong-hop-khoa-minh',
   XEM_TIEN_DO_KHAC_PHUC_KHOA_MINH: 'xem-tien-do-khac-phuc-khoa-minh',
+  QUAN_LY_KHAC_PHUC_KHOA_MINH: 'quan-ly-khac-phuc-khoa-minh',
   TAO_TAI_KHOAN_NHAN_VIEN: 'tao-tai-khoan-nhan-vien',
 
   // Nhân viên
@@ -37,28 +40,32 @@ export const PERM_XEM_TONG_HOP = [
   PERMISSION.XEM_TONG_HOP_KHOA_MINH,
 ] as const
 
-// Làm / chấm bảng kiểm đánh giá: QLCL (đánh giá các khoa), Nhân viên (làm đánh giá)
+// Làm / chấm bảng kiểm đánh giá: QLCL (đánh giá các khoa), Trưởng khoa (toàn quyền khoa mình), Nhân viên (làm đánh giá)
 export const PERM_DANH_GIA = [
   PERMISSION.DANH_GIA_CAC_KHOA,
+  PERMISSION.QUAN_LY_BANG_KIEM_KHOA_MINH,
   PERMISSION.LAM_DANH_GIA,
 ] as const
 
-// Xem lịch đánh giá: nhóm xem tổng hợp + người tham gia đánh giá + trưởng khoa phân công
+// Xem lịch đánh giá: nhóm xem tổng hợp (đã gồm QLCL/Trưởng khoa/Nhân viên) + trưởng khoa phân công
 export const PERM_XEM_LICH = [
   ...PERM_XEM_TONG_HOP,
-  ...PERM_DANH_GIA,
   PERMISSION.PHAN_CONG_DANH_GIA,
 ] as const
 
-// Xem tiến độ khắc phục: Admin, QLCL (tất cả khoa), Trưởng khoa (khoa mình)
+// Xem tiến độ khắc phục: Admin, QLCL (tất cả khoa), Trưởng khoa (khoa mình, gồm cả quyền quản lý), Nhân viên (khoa mình)
 export const PERM_XEM_TIEN_DO_KP = [
   PERMISSION.XEM_TOAN_QUYEN_BAO_CAO_LICH,
   PERMISSION.XEM_TIEN_DO_KHAC_PHUC_TAT_CA_KHOA,
   PERMISSION.XEM_TIEN_DO_KHAC_PHUC_KHOA_MINH,
+  PERMISSION.QUAN_LY_KHAC_PHUC_KHOA_MINH,
 ] as const
 
-// Ảnh 5S / Nhóm Zalo 5S: nhóm xem + nhóm đánh giá (nhân viên cần up/xem ảnh khi làm đánh giá)
-export const PERM_XEM_ANH_5S = [...PERM_XEM_TONG_HOP, ...PERM_DANH_GIA] as const
+// Ảnh 5S / Nhóm Zalo 5S: CHỈ Admin + Phòng QLCL (toàn viện) — Trưởng khoa/Nhân viên không có quyền vào mục này
+export const PERM_XEM_ANH_5S = [
+  PERMISSION.XEM_TOAN_QUYEN_BAO_CAO_LICH,
+  PERMISSION.QUAN_LY_ANH_5S_TAT_CA_KHOA,
+] as const
 
 // Cấu hình hệ thống: Admin
 export const PERM_CAU_HINH = [

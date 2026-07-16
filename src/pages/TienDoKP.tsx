@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Wrench, RotateCcw, Pencil } from 'lucide-react'
+import { Wrench, RotateCcw, Pencil, Trash2 } from 'lucide-react'
 import {
   PageHeader,
   KpiCard,
@@ -13,7 +13,9 @@ import {
   EmptyState,
   useCatalog,
 } from '../components/ui/PageShell'
-import { fetchKhacPhucList, createUpdateKhacPhuc } from '../features/qlcl/api'
+import SearchableSelect from '../components/ui/SearchableSelect'
+import Pagination, { usePagination } from '../components/ui/Pagination'
+import { fetchKhacPhucList, createUpdateKhacPhuc, deleteKhacPhuc } from '../features/qlcl/api'
 import type { KhacPhuc } from '../features/qlcl/types'
 
 const TRANG_THAI = ['Chưa bắt đầu', 'Đang xử lý', 'Đã xong']
@@ -28,14 +30,24 @@ function ttBadge(tt: string, quaHan: boolean) {
 const isQuaHan = (kp: KhacPhuc) =>
   kp.trang_thai !== 'Đã xong' && !!kp.han_xu_ly && kp.han_xu_ly < new Date().toISOString().slice(0, 10)
 
+// Số ngày còn lại tới hạn xử lý (âm = đã quá hạn bấy nhiêu ngày)
+function soNgayConLai(hanXuLy: string | null): number | null {
+  if (!hanXuLy) return null
+  const han = new Date(`${hanXuLy}T00:00:00`)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((han.getTime() - today.getTime()) / 86400000)
+}
+
 export default function TienDoKP() {
-  const { users } = useCatalog()
+  const { users, khoaList } = useCatalog()
   const [rows, setRows] = useState<KhacPhuc[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [fTuan, setFTuan] = useState('')
   const [fTT, setFTT] = useState('')
+  const [fKhoa, setFKhoa] = useState('')
 
   // Modal cập nhật
   const [editing, setEditing] = useState<KhacPhuc | null>(null)
@@ -67,12 +79,22 @@ export default function TienDoKP() {
     () =>
       rows.filter((r) => {
         if (fTuan && r.tuan !== fTuan) return false
+        if (fKhoa && String(r.danh_gia_chi_tiet?.danh_gia?.khoa_id) !== fKhoa) return false
         if (fTT === 'Quá hạn') return isQuaHan(r)
         if (fTT && r.trang_thai !== fTT) return false
         return true
       }),
-    [rows, fTuan, fTT],
+    [rows, fTuan, fTT, fKhoa],
   )
+
+  const {
+    page,
+    setPage,
+    totalPages,
+    pageItems: pagedRows,
+    pageSize,
+    totalItems,
+  } = usePagination(filtered, { resetKey: `${fTuan}|${fTT}|${fKhoa}` })
 
   const kpi = useMemo(
     () => ({
@@ -80,9 +102,28 @@ export default function TienDoKP() {
       done: filtered.filter((r) => r.trang_thai === 'Đã xong').length,
       doing: filtered.filter((r) => r.trang_thai === 'Đang xử lý').length,
       over: filtered.filter(isQuaHan).length,
+      // Chưa có hành động KP nào ghi nhận, đã phát hiện quá 5 ngày (tính theo ngày tạo)
+      chuaKP: filtered.filter((r) => {
+        if (r.hanh_dong_khac_phuc?.trim()) return false
+        if (r.trang_thai === 'Đã xong') return false
+        const created = r.createdAt ? new Date(r.createdAt) : null
+        if (!created) return false
+        const days = Math.floor((Date.now() - created.getTime()) / 86400000)
+        return days >= 5
+      }).length,
     }),
     [filtered],
   )
+
+  async function handleDelete(kp: KhacPhuc) {
+    if (!window.confirm('Xoá hành động khắc phục này?')) return
+    try {
+      await deleteKhacPhuc(kp.id)
+      setRows((prev) => prev.filter((r) => r.id !== kp.id))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Xoá thất bại')
+    }
+  }
 
   function openEdit(kp: KhacPhuc) {
     setEditing(kp)
@@ -127,11 +168,12 @@ export default function TienDoKP() {
       />
       {error && <ErrorBanner message={error} onRetry={load} />}
 
-      <div className="mb-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-4 xl:grid-cols-5">
         <KpiCard label="Tổng hành động" value={kpi.total} accent="navy" />
         <KpiCard label="Đã xong" value={kpi.done} accent="green" />
         <KpiCard label="Đang xử lý" value={kpi.doing} accent="blue" />
         <KpiCard label="⚠ Quá hạn" value={kpi.over} sub="cần xử lý ngay" accent="red" />
+        <KpiCard label="⚠ Chưa KP ≥5 ngày" value={kpi.chuaKP} sub="cần xử lý ngay" accent="yellow" />
       </div>
 
       {/* ── Bộ lọc ── */}
@@ -144,6 +186,14 @@ export default function TienDoKP() {
             ))}
           </select>
         </Field>
+        <Field label="Khoa / Phòng" className="min-w-[220px]">
+          <SearchableSelect
+            value={fKhoa}
+            onChange={(v) => setFKhoa(v)}
+            options={khoaList.map((k) => ({ value: String(k.id), label: k.ten_khoa }))}
+            placeholder="— Tất cả khoa —"
+          />
+        </Field>
         <Field label="Trạng thái">
           <select className={inputCls} value={fTT} onChange={(e) => setFTT(e.target.value)}>
             <option value="">— Tất cả —</option>
@@ -153,11 +203,11 @@ export default function TienDoKP() {
             <option>Quá hạn</option>
           </select>
         </Field>
-        <button className={btnSecondary} onClick={() => { setFTuan(''); setFTT('') }}>
+        <button className={btnSecondary} onClick={() => { setFTuan(''); setFTT(''); setFKhoa('') }}>
           <RotateCcw size={14} /> Xoá lọc
         </button>
         <span className="pb-2 text-xs text-gray-400">
-          Hành động KP được tạo tự động/thủ công từ tiêu chí ✗ khi lưu Bảng kiểm
+          Hành động KP được tạo tự động cho mọi tiêu chí ✗ khi lưu Bảng kiểm
         </span>
       </div>
 
@@ -175,16 +225,18 @@ export default function TienDoKP() {
                   <th className="px-4 py-3 font-medium">Hành động khắc phục</th>
                   <th className="px-4 py-3 font-medium">Người phụ trách</th>
                   <th className="px-4 py-3 font-medium">Hạn xử lý</th>
+                  <th className="px-4 py-3 font-medium">Tiến độ</th>
                   <th className="px-4 py-3 font-medium">Tuần</th>
                   <th className="px-4 py-3 font-medium">Trạng thái</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => {
+                {pagedRows.map((r) => {
                   const dgct = r.danh_gia_chi_tiet
                   const dg = dgct?.danh_gia
                   const quaHan = isQuaHan(r)
+                  const conLai = soNgayConLai(r.han_xu_ly)
                   return (
                     <tr key={r.id} className="border-b border-gray-50 align-top last:border-0 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/40">
                       <td className="max-w-[280px] px-5 py-3">
@@ -207,6 +259,17 @@ export default function TienDoKP() {
                       <td className={`px-4 py-3 ${quaHan ? 'font-semibold text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
                         {r.han_xu_ly ? new Date(r.han_xu_ly).toLocaleDateString('vi-VN') : '—'}
                       </td>
+                      <td className="px-4 py-3">
+                        {r.trang_thai === 'Đã xong' ? (
+                          <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">✓ Đã hoàn thành</span>
+                        ) : conLai == null ? (
+                          <span className="text-xs text-gray-300">—</span>
+                        ) : (
+                          <span className={`text-xs font-semibold ${conLai < 0 ? 'text-red-500' : conLai <= 2 ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {conLai < 0 ? `Quá hạn ${Math.abs(conLai)} ngày` : conLai === 0 ? 'Hết hạn hôm nay' : `Còn ${conLai} ngày`}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{r.tuan}</td>
                       <td className="px-4 py-3">
                         <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${ttBadge(r.trang_thai, quaHan)}`}>
@@ -215,9 +278,14 @@ export default function TienDoKP() {
                         {r.ghi_chu && <p className="mt-1 max-w-[160px] truncate text-[11px] text-gray-400">{r.ghi_chu}</p>}
                       </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => openEdit(r)} className="rounded-lg border border-gray-200 p-1.5 text-gray-400 transition hover:border-brand-300 hover:text-brand-600 dark:border-gray-700" title="Cập nhật tiến độ">
-                          <Pencil size={14} />
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => openEdit(r)} className="rounded-lg border border-gray-200 p-1.5 text-gray-400 transition hover:border-brand-300 hover:text-brand-600 dark:border-gray-700" title="Cập nhật tiến độ">
+                            <Pencil size={14} />
+                          </button>
+                          <button onClick={() => handleDelete(r)} className="rounded-lg border border-gray-200 p-1.5 text-gray-400 transition hover:border-red-300 hover:text-red-600 dark:border-gray-700" title="Xoá hành động">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -225,6 +293,13 @@ export default function TienDoKP() {
               </tbody>
             </table>
           </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onChange={setPage}
+            totalItems={totalItems}
+            pageSize={pageSize}
+          />
         </div>
       )}
 

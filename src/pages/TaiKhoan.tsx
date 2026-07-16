@@ -23,6 +23,7 @@ import {
   useCatalog,
 } from "../components/ui/PageShell";
 import SearchableSelect from "../components/ui/SearchableSelect";
+import Pagination, { usePagination } from "../components/ui/Pagination";
 import {
   fetchUserListFull,
   fetchRoleList,
@@ -31,6 +32,11 @@ import {
 } from "../features/qlcl/api";
 import type { Role, UserFull } from "../features/qlcl/types";
 import { useAppSelector } from "../app/hooks";
+import { PERMISSION } from "../features/auth/permissions";
+import { useHasPermission } from "../features/auth/usePermission";
+
+// Role mà Trưởng khoa KHÔNG được phép gán (khớp assertRoleAllowedForScopedManager ở backend)
+const ROLE_SLUGS_ONLY_ADMIN_CAN_ASSIGN = ["admin", "phong-qlcl"];
 
 const roleBadge: Record<string, string> = {
   admin:
@@ -105,6 +111,10 @@ function validateForm(f: FormState): FormErrors {
 export default function TaiKhoan() {
   const { khoaList } = useCatalog();
   const currentUser = useAppSelector((s) => s.auth.user);
+  // Trang này chỉ Admin (TAO_TAI_KHOAN) và Trưởng khoa (TAO_TAI_KHOAN_NHAN_VIEN) truy cập được
+  // (xem PERM_QUAN_LY_TAI_KHOAN trong App.tsx) — không có TAO_TAI_KHOAN nghĩa là Trưởng khoa,
+  // chỉ được CRUD tài khoản trong khoa/phòng của chính mình.
+  const isScopedManager = !useHasPermission(PERMISSION.TAO_TAI_KHOAN);
 
   const [rows, setRows] = useState<UserFull[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -166,6 +176,24 @@ export default function TaiKhoan() {
     [rows, fName, fRole],
   );
 
+  const {
+    page,
+    setPage,
+    totalPages,
+    pageItems: pagedRows,
+    pageSize,
+    totalItems,
+  } = usePagination(filtered, { resetKey: `${fName}|${fRole}` });
+
+  // Trưởng khoa không được gán role admin/phong-qlcl (khớp guard ở backend)
+  const assignableRoles = useMemo(
+    () =>
+      isScopedManager
+        ? roles.filter((r) => !ROLE_SLUGS_ONLY_ADMIN_CAN_ASSIGN.includes(r.slug))
+        : roles,
+    [roles, isScopedManager],
+  );
+
   const kpi = useMemo(() => {
     const byRole = new Map<string, number>();
     for (const u of rows) {
@@ -184,7 +212,11 @@ export default function TaiKhoan() {
     setFormError(null);
     setFieldErrors({});
     setUsernameTouched(false);
-    setForm({ ...emptyForm });
+    setForm({
+      ...emptyForm,
+      // Trưởng khoa chỉ tạo được tài khoản trong khoa/phòng của chính mình
+      khoa_id: isScopedManager ? (currentUser?.khoa_id ?? "") : "",
+    });
   }
 
   function openEdit(u: UserFull) {
@@ -346,7 +378,7 @@ export default function TaiKhoan() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((u, i) => {
+                {pagedRows.map((u, i) => {
                   const role = u.user_role?.role;
                   const isSelf = u.id === currentUser?.id;
                   return (
@@ -354,7 +386,9 @@ export default function TaiKhoan() {
                       key={u.id}
                       className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 dark:border-gray-800 dark:hover:bg-gray-800/30"
                     >
-                      <td className="px-4 py-3 text-gray-400">{i + 1}</td>
+                      <td className="px-4 py-3 text-gray-400">
+                        {(page - 1) * pageSize + i + 1}
+                      </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-700 dark:text-gray-200">
                           {u.username}
@@ -427,6 +461,13 @@ export default function TaiKhoan() {
               </tbody>
             </table>
           </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onChange={setPage}
+            totalItems={totalItems}
+            pageSize={pageSize}
+          />
         </div>
       )}
 
@@ -548,16 +589,23 @@ export default function TaiKhoan() {
                   label: k.ten_khoa,
                 }))}
                 placeholder="— Chọn khoa/phòng —"
+                disabled={isScopedManager}
                 className={
                   fieldErrors.khoa_id
                     ? "border-red-400 focus:border-red-400 focus:ring-red-100"
                     : ""
                 }
               />
-              {fieldErrors.khoa_id && (
-                <p className="mt-1 text-[11px] text-red-500">
-                  {fieldErrors.khoa_id}
+              {isScopedManager ? (
+                <p className="mt-1 text-[11px] text-gray-400">
+                  Trưởng khoa chỉ quản lý được tài khoản trong khoa/phòng của mình.
                 </p>
+              ) : (
+                fieldErrors.khoa_id && (
+                  <p className="mt-1 text-[11px] text-red-500">
+                    {fieldErrors.khoa_id}
+                  </p>
+                )
               )}
             </Field>
             <Field label="Quyền (role) *">
@@ -573,7 +621,7 @@ export default function TaiKhoan() {
                 }}
               >
                 <option value="">— Chọn quyền —</option>
-                {roles.map((r) => (
+                {assignableRoles.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
                   </option>

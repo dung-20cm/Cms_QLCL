@@ -49,9 +49,19 @@ function groupByS(items: ChecklistItem[]): SGroup[] {
 const todayStr = () => new Date().toISOString().slice(0, 10)
 
 export default function BangKiem() {
-  const { khoaList, vitriTypes, status: catalogStatus, error: catalogError } = useCatalog()
+  const { khoaList, vitriTypes, users, status: catalogStatus, error: catalogError } = useCatalog()
   const user = useAppSelector((s) => s.auth.user)
   const navigate = useNavigate()
+
+  // Đồng đánh giá — cán bộ CÙNG tham gia chấm bảng kiểm này, ngoài người đang
+  // đăng nhập (luôn là người đánh giá chính). Chỉ được chọn cán bộ CÙNG khoa/
+  // phòng với tài khoản đang đăng nhập (khớp file mẫu: cho chọn nhiều người
+  // cùng đánh giá, nhưng giới hạn trong phạm vi khoa/phòng của mình).
+  const [dongDanhGiaIds, setDongDanhGiaIds] = useState<number[]>([])
+  const dongDanhGiaOptions = useMemo(
+    () => users.filter((u) => u.khoa_id === user?.khoa_id && u.id !== user?.id),
+    [users, user?.khoa_id, user?.id],
+  )
 
   // ── Thông tin đánh giá ──
   const [khoaId, setKhoaId] = useState<number | ''>('')
@@ -169,6 +179,7 @@ export default function BangKiem() {
     setKetQua({})
     setGhiChu({})
     setViTriChiTietIds([])
+    setDongDanhGiaIds([])
     setSaved(null)
     setSaveError(null)
     setPhotos([])
@@ -191,6 +202,7 @@ export default function BangKiem() {
         // chọn đúng 1 mã cấu hình => lưu kèm id để trace về vitri_chi_tiet
         vitri_chi_tiet_id: viTriChiTietIds.length === 1 ? viTriChiTietIds[0] : null,
         nguoi_danh_gia_id: user.id,
+        dong_danh_gia_ids: dongDanhGiaIds.length ? dongDanhGiaIds.join(',') : null,
         ngay_danh_gia: ngay,
         dot_danh_gia: chiTietLabel ? `${dot} — ${chiTietLabel}` : dot,
         // liên kết đợt cấu hình (bảng dot_danh_gia) nếu đang chọn 1 đợt từ danh sách
@@ -277,8 +289,38 @@ export default function BangKiem() {
               <input className={inputCls} value={viTriChiTiet} onChange={(e) => setViTriChiTiet(e.target.value)} placeholder="VD: Buồng 3, Phòng mổ 1, Xe số 2..." />
             </Field>
           )}
-          <Field label="Người đánh giá">
-            <input className={`${inputCls} bg-gray-50 dark:bg-gray-800/60`} value={user?.username || ''} readOnly />
+          <Field label="Người đánh giá (tích chọn thêm đồng nghiệp cùng khoa/phòng nếu cùng đánh giá)">
+            <div className="flex flex-wrap gap-1.5 rounded-lg border border-gray-200 p-2 dark:border-gray-700">
+              <span className="inline-flex items-center rounded-full border border-brand-500 bg-brand-500 px-3 py-1 text-xs font-medium text-white">
+                {user?.username} <span className="ml-1 font-normal opacity-80">(bạn)</span>
+              </span>
+              {dongDanhGiaOptions.map((u) => {
+                const on = dongDanhGiaIds.includes(u.id)
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() =>
+                      setDongDanhGiaIds((prev) =>
+                        on ? prev.filter((id) => id !== u.id) : [...prev, u.id],
+                      )
+                    }
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      on
+                        ? 'border-brand-500 bg-brand-500 text-white'
+                        : 'border-gray-200 text-gray-500 hover:border-brand-300 dark:border-gray-700 dark:text-gray-400'
+                    }`}
+                  >
+                    {u.email || u.username}
+                  </button>
+                )
+              })}
+              {dongDanhGiaOptions.length === 0 && (
+                <span className="py-1 text-xs text-gray-400">
+                  Không có đồng nghiệp nào khác trong khoa/phòng của bạn
+                </span>
+              )}
+            </div>
           </Field>
           <Field label="Ngày đánh giá">
             <input type="date" className={inputCls} value={ngay} onChange={(e) => setNgay(e.target.value)} />

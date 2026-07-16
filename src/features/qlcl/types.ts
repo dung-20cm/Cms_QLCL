@@ -91,6 +91,8 @@ export interface DanhGia {
   vitri_type_id: number
   vitri_chi_tiet_id: number | null
   nguoi_danh_gia_id: number
+  // Cán bộ ĐỒNG đánh giá (ngoài nguoi_danh_gia_id) — chuỗi id nối dấu phẩy, VD "5,12"
+  dong_danh_gia_ids?: string | null
   ngay_danh_gia: string // "2026-07-02"
   dot_danh_gia: string
   so_tieu_chi_dat: number
@@ -103,6 +105,10 @@ export interface DanhGia {
   vitri_type?: { id: number; ten_vitri: string }
   vitri_chi_tiet?: { id: number; ma_vitri: string } | null
   nguoi_danh_gia?: { id: number; username: string; email: string }
+  // Danh sách cán bộ đồng đánh giá đã resolve tên (backend trả sẵn từ dong_danh_gia_ids)
+  dong_danh_gia?: { id: number; username: string; email: string }[]
+  // Tỷ lệ đạt từng nhóm S1..S5 — backend tính sẵn trong get-list-danh-gia (tránh N+1 phía FE)
+  sScores?: { id: string; name?: string; color?: string; lt?: string; ok: number; total: number; pct: number }[]
 }
 
 export interface DanhGiaChiTietPayload {
@@ -116,6 +122,7 @@ export interface CreateDanhGiaPayload {
   vitri_type_id: number
   vitri_chi_tiet_id?: number | null
   nguoi_danh_gia_id: number
+  dong_danh_gia_ids?: string | null
   ngay_danh_gia: string
   dot_danh_gia: string
   dot_danh_gia_id?: number | null // FK -> dot_danh_gia.id (đợt cấu hình)
@@ -151,15 +158,20 @@ export interface LichPhanCong {
   id: number
   khoa_id: number
   vitri_type_id: number | null
-  loai_lich: string // dinh_ky | mot_lan | dot_xuat
+  // FK -> dot_danh_gia.id — "Loại lịch" giờ chọn từ danh sách Đợt đánh giá thực tế
+  // (GET /api/dot-danh-gia/get-list-dot-danh-gia) thay vì 3 option cố định.
+  dot_danh_gia_id: number | null
+  loai_lich: string // dinh_ky | mot_lan | dot_xuat — tự suy ra từ tên đợt đã chọn (xem inferLoaiLichFromTenDot)
   thu_trong_tuan: number | null // 1=Thứ 2 ... 7=CN
   ngay_thuc_hien: string | null
   nguoi_thuc_hien_id: number
   ghi_chu: string | null
   active: number
+  createdAt?: string
   khoa?: { id: number; ten_khoa: string }
   vitri_type?: { id: number; ten_vitri: string } | null
   nguoi_thuc_hien?: UserLite
+  dot?: { id: number; ten_dot: string; trang_thai?: string } | null
 }
 
 export interface Anh5sTuanViTri {

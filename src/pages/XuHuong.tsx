@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Chart from 'react-apexcharts'
 import type { ApexOptions } from 'apexcharts'
-import { TrendingUp, RotateCcw } from 'lucide-react'
+import { TrendingUp, RotateCcw, X } from 'lucide-react'
 import { useAppSelector } from '../app/hooks'
 import {
   PageHeader,
   Field,
+  Modal,
   inputCls,
   btnSecondary,
   LoadingRow,
@@ -15,9 +16,22 @@ import {
 } from '../components/ui/PageShell'
 import SearchableSelect from '../components/ui/SearchableSelect'
 import ChartCard from '../components/ui/ChartCard'
-import { fetchDanhGiaList } from '../features/qlcl/api'
+import { fetchDanhGiaList, fetchTopTieuChiLoi } from '../features/qlcl/api'
+import type { TopTieuChiLoi } from '../features/qlcl/api'
 import type { DanhGia } from '../features/qlcl/types'
 import { toneBadgeClass, toneFromPct } from '../features/qlcl/types'
+
+// Thứ tự + tên/màu cố định 5 nhóm 5S — khớp bảng màu file mẫu 5S_Dashboard_BVTB_v4
+const S_META: Record<string, { name: string; color: string }> = {
+  S1: { name: 'Sàng lọc', color: '#D85A30' },
+  S2: { name: 'Sắp xếp', color: '#BA7517' },
+  S3: { name: 'Sạch sẽ', color: '#1D9E75' },
+  S4: { name: 'Săn sóc', color: '#185FA5' },
+  S5: { name: 'Sẵn sàng', color: '#534AB7' },
+}
+const S_IDS = ['S1', 'S2', 'S3', 'S4', 'S5']
+
+type SortMode = 'newest' | 'oldest' | 'rank_desc' | 'rank_asc' | 'khoa'
 
 export default function XuHuong() {
   const { khoaList, vitriTypes } = useCatalog()
@@ -33,6 +47,11 @@ export default function XuHuong() {
   const [fKhoa, setFKhoa] = useState('')
   const [fVitri, setFVitri] = useState('')
   const [year, setYear] = useState(new Date().getFullYear())
+  const [sortMode, setSortMode] = useState<SortMode>('newest')
+
+  const [top10, setTop10] = useState<TopTieuChiLoi[]>([])
+  const [top10Loading, setTop10Loading] = useState(false)
+  const [drillItem, setDrillItem] = useState<TopTieuChiLoi | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -44,6 +63,20 @@ export default function XuHuong() {
   }, [])
 
   useEffect(load, [load])
+
+  // Top 10 tiêu chí lỗi — tính riêng ở BE theo cùng bộ lọc (from/to/khoa/vitri)
+  useEffect(() => {
+    setTop10Loading(true)
+    fetchTopTieuChiLoi({
+      tu_ngay: fFrom || undefined,
+      den_ngay: fTo || undefined,
+      khoa_id: fKhoa ? Number(fKhoa) : undefined,
+      vitri_type_id: fVitri ? Number(fVitri) : undefined,
+    })
+      .then((res) => setTop10(res.data))
+      .catch(() => setTop10([]))
+      .finally(() => setTop10Loading(false))
+  }, [fFrom, fTo, fKhoa, fVitri])
 
   const filtered = useMemo(
     () =>
@@ -174,6 +207,51 @@ export default function XuHuong() {
   const strengths = khoaRank.filter((k) => k.avg >= 90).slice(0, 5)
   const weaknesses = [...khoaRank].reverse().filter((k) => k.avg < 75).slice(0, 5)
 
+  // ── Tỷ lệ đạt trung bình theo từng nhóm S1..S5 (tất cả lượt đang lọc) ──
+  const sAvg = useMemo(() => {
+    const agg: Record<string, { ok: number; total: number }> = {}
+    for (const r of filtered) {
+      for (const s of r.sScores || []) {
+        const cur = agg[s.id] || { ok: 0, total: 0 }
+        cur.ok += s.ok
+        cur.total += s.total
+        agg[s.id] = cur
+      }
+    }
+    const out: Record<string, number> = {}
+    for (const id of S_IDS) {
+      const v = agg[id]
+      out[id] = v && v.total ? Math.round((v.ok / v.total) * 100) : 0
+    }
+    return out
+  }, [filtered])
+
+  // Hạng (rank) cố định theo % đạt giảm dần — không đổi theo lựa chọn sắp xếp bảng
+  const rankMap = useMemo(() => {
+    const sorted = [...filtered].sort((a, b) => b.pct - a.pct)
+    const m = new Map<number, number>()
+    sorted.forEach((r, i) => m.set(r.id, i + 1))
+    return m
+  }, [filtered])
+
+  const displayRows = useMemo(() => {
+    const arr = [...filtered]
+    switch (sortMode) {
+      case 'newest':
+        return arr.sort((a, b) => b.ngay_danh_gia.localeCompare(a.ngay_danh_gia) || b.id - a.id)
+      case 'oldest':
+        return arr.sort((a, b) => a.ngay_danh_gia.localeCompare(b.ngay_danh_gia) || a.id - b.id)
+      case 'rank_desc':
+        return arr.sort((a, b) => b.pct - a.pct)
+      case 'rank_asc':
+        return arr.sort((a, b) => a.pct - b.pct)
+      case 'khoa':
+        return arr.sort((a, b) => (a.khoa?.ten_khoa || '').localeCompare(b.khoa?.ten_khoa || '', 'vi'))
+      default:
+        return arr
+    }
+  }, [filtered, sortMode])
+
   return (
     <div>
       <PageHeader
@@ -215,6 +293,27 @@ export default function XuHuong() {
         <EmptyState icon={<TrendingUp size={36} />} message="Cần ít nhất 1 lượt đánh giá để hiển thị xu hướng" />
       ) : (
         <div className="space-y-5">
+          {/* ── Tỷ lệ đạt trung bình theo từng nhóm 5S ── */}
+          <ChartCard title="Tỷ lệ đạt trung bình theo từng nhóm 5S" subtitle="Tính trên toàn bộ lượt đang lọc">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {S_IDS.map((id) => {
+                const meta = S_META[id]
+                const pct = sAvg[id] ?? 0
+                const color = pct >= 80 ? '#1D9E75' : pct >= 60 ? meta.color : '#E24B4A'
+                return (
+                  <div key={id} className="rounded-xl border border-gray-100 p-3 text-center dark:border-gray-800">
+                    <p className="text-xs font-bold" style={{ color: meta.color }}>{id}</p>
+                    <p className="mt-1 text-2xl font-bold" style={{ color }}>{pct}%</p>
+                    <p className="mt-0.5 text-[11px] text-gray-400">{meta.name}</p>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </ChartCard>
+
           <ChartCard
             title={`Xu hướng tỷ lệ đạt theo tháng — năm ${year}`}
             subtitle="Trung bình % đạt của tất cả lượt trong tháng · vạch xanh = mục tiêu 90%"
@@ -277,42 +376,140 @@ export default function XuHuong() {
             </div>
           </div>
 
+          {/* ── Top 10 tiêu chí bị ✗ nhiều nhất ── */}
+          <ChartCard title="🔴 Top 10 tiêu chí bị ✗ nhiều nhất" subtitle="Bấm vào 1 dòng để xem chi tiết theo khoa">
+            {top10Loading ? (
+              <LoadingRow />
+            ) : top10.length === 0 ? (
+              <p className="text-sm text-gray-400">Không có tiêu chí nào bị ✗ trong khoảng đang lọc 🎉</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                      <th className="py-2 pr-3 font-medium">#</th>
+                      <th className="py-2 pr-3 font-medium">S</th>
+                      <th className="py-2 pr-3 font-medium">Nội dung tiêu chí</th>
+                      <th className="py-2 pr-3 font-medium">Số lần ✗</th>
+                      <th className="py-2 font-medium">% lượt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {top10.map((t, i) => (
+                      <tr
+                        key={t.checklist_item_id}
+                        onClick={() => setDrillItem(t)}
+                        className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/40"
+                      >
+                        <td className="py-2 pr-3 text-gray-400">{i + 1}</td>
+                        <td className="py-2 pr-3">
+                          <span className="rounded px-1.5 py-0.5 text-xs font-bold" style={{ color: S_META[t.s_id]?.color, background: `${S_META[t.s_id]?.color}1a` }}>
+                            {t.s_id}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3 text-gray-700 dark:text-gray-200">
+                          {t.tc}
+                          {t.sub && <span className="ml-1 text-xs text-gray-400">({t.sub})</span>}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                              <div className="h-full rounded-full bg-red-500" style={{ width: `${Math.min(100, (t.fail_count / top10[0].fail_count) * 100)}%` }} />
+                            </div>
+                            <span className="font-semibold text-red-600 dark:text-red-400">{t.fail_count}</span>
+                          </div>
+                        </td>
+                        <td className="py-2 font-medium text-gray-600 dark:text-gray-300">{t.rate_pct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </ChartCard>
+
           {/* ── Bảng chi tiết từng lượt ── */}
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-            <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
               <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Chi tiết kết quả theo lượt đánh giá</h3>
+              <select className={inputCls} style={{ fontSize: 12, padding: '3px 8px' }} value={sortMode} onChange={(e) => setSortMode(e.target.value as SortMode)}>
+                <option value="newest">Mới nhất lên trên</option>
+                <option value="oldest">Cũ nhất lên trên</option>
+                <option value="rank_desc">Xếp hạng cao → thấp</option>
+                <option value="rank_asc">Xếp hạng thấp → cao</option>
+                <option value="khoa">Theo tên đơn vị</option>
+              </select>
             </div>
             <div className="max-h-[480px] overflow-auto">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 bg-white dark:bg-gray-900">
                   <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                    <th className="px-5 py-3 font-medium">Ngày</th>
+                    <th className="px-5 py-3 font-medium">Hạng</th>
+                    <th className="px-4 py-3 font-medium">Ngày</th>
                     <th className="px-4 py-3 font-medium">Khoa / Phòng</th>
                     <th className="px-4 py-3 font-medium">Vị trí</th>
-                    <th className="px-4 py-3 font-medium">% Đạt</th>
+                    {S_IDS.map((id) => (
+                      <th key={id} className="px-3 py-3 text-center font-medium" style={{ color: S_META[id].color }}>{id}</th>
+                    ))}
+                    <th className="px-4 py-3 font-medium">Tổng</th>
                     <th className="px-4 py-3 font-medium">Xếp loại</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...filtered]
-                    .sort((a, b) => b.ngay_danh_gia.localeCompare(a.ngay_danh_gia))
-                    .map((r) => (
+                  {displayRows.map((r) => {
+                    const byS = Object.fromEntries((r.sScores || []).map((s) => [s.id, s.pct]))
+                    return (
                       <tr key={r.id} className="border-b border-gray-50 last:border-0 dark:border-gray-800">
-                        <td className="px-5 py-2.5 text-gray-500 dark:text-gray-400">{new Date(r.ngay_danh_gia).toLocaleDateString('vi-VN')}</td>
+                        <td className="px-5 py-2.5 text-gray-400">#{rankMap.get(r.id)}</td>
+                        <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{new Date(r.ngay_danh_gia).toLocaleDateString('vi-VN')}</td>
                         <td className="px-4 py-2.5 font-medium text-gray-700 dark:text-gray-200">{r.khoa?.ten_khoa}</td>
                         <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{r.vitri_type?.ten_vitri}</td>
+                        {S_IDS.map((id) => (
+                          <td key={id} className="px-3 py-2.5 text-center text-gray-500 dark:text-gray-400">
+                            {byS[id] != null ? `${byS[id]}%` : '—'}
+                          </td>
+                        ))}
                         <td className="px-4 py-2.5 font-semibold text-gray-700 dark:text-gray-200">{r.pct}%</td>
                         <td className="px-4 py-2.5">
                           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${toneBadgeClass[toneFromPct(r.pct)]}`}>{r.xep_loai}</span>
                         </td>
                       </tr>
-                    ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
       )}
+
+      {/* ── Modal drill-down: khoa nào bị lỗi tiêu chí đã chọn ── */}
+      <Modal
+        open={!!drillItem}
+        title={drillItem ? `Chi tiết lỗi: ${drillItem.tc}` : ''}
+        onClose={() => setDrillItem(null)}
+        footer={
+          <button className={btnSecondary} onClick={() => setDrillItem(null)}>
+            <X size={14} /> Đóng
+          </button>
+        }
+      >
+        {drillItem && (
+          <div>
+            <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+              Tổng <b className="text-red-600 dark:text-red-400">{drillItem.fail_count}</b> lần ✗ trên {drillItem.rate_pct}% lượt đánh giá — theo khoa/phòng:
+            </p>
+            <ul className="max-h-72 space-y-1.5 overflow-y-auto">
+              {drillItem.by_khoa.map((k) => (
+                <li key={k.khoa} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/50">
+                  <span className="text-gray-700 dark:text-gray-200">{k.khoa}</span>
+                  <span className="font-bold text-red-600 dark:text-red-400">{k.count} lần</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

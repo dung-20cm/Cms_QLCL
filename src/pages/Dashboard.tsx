@@ -1,157 +1,282 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ClipboardCheck, Percent, Building2, Wrench } from 'lucide-react'
-import StatCard from '../components/ui/StatCard'
-import ChartCard from '../components/ui/ChartCard'
-import TrendChart from '../components/charts/TrendChart'
-import GroupBreakdownChart from '../components/charts/GroupBreakdownChart'
-import TargetChart from '../components/charts/TargetChart'
-import { LoadingRow, ErrorBanner, EmptyState } from '../components/ui/PageShell'
-import { fetchDanhGiaList, fetchKhacPhucList, fetchDanhGiaById } from '../features/qlcl/api'
-import type { SScore } from '../features/qlcl/api'
-import type { DanhGia, KhacPhuc } from '../features/qlcl/types'
-import { toneBadgeClass, toneFromPct } from '../features/qlcl/types'
+import { useEffect, useMemo, useState } from "react";
+import { ClipboardCheck, Percent, Building2, Wrench } from "lucide-react";
+import StatCard from "../components/ui/StatCard";
+import ChartCard from "../components/ui/ChartCard";
+import TrendChart from "../components/charts/TrendChart";
+import GroupBreakdownChart from "../components/charts/GroupBreakdownChart";
+import TargetChart from "../components/charts/TargetChart";
+import {
+  LoadingRow,
+  ErrorBanner,
+  EmptyState,
+} from "../components/ui/PageShell";
+import {
+  fetchDanhGiaList,
+  fetchKhacPhucList,
+  fetchLichPhanCongList,
+} from "../features/qlcl/api";
+import type { DanhGia, KhacPhuc, LichPhanCong } from "../features/qlcl/types";
+import { toneBadgeClass, toneFromPct } from "../features/qlcl/types";
 
-const TARGET_PCT = 90
+const TARGET_PCT = 90;
+
+const S_IDS = ["S1", "S2", "S3", "S4", "S5"];
 
 // "2026-07-05" -> "T7/26"
 function monthLabel(ym: string): string {
-  const [y, m] = ym.split('-')
-  return `T${Number(m)}/${y.slice(2)}`
+  const [y, m] = ym.split("-");
+  return `T${Number(m)}/${y.slice(2)}`;
 }
+const fmt = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 export default function Dashboard() {
-  const [rows, setRows] = useState<DanhGia[]>([])
-  const [khacPhuc, setKhacPhuc] = useState<KhacPhuc[]>([])
-  const [sScores, setSScores] = useState<SScore[][]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [rows, setRows] = useState<DanhGia[]>([]);
+  const [khacPhuc, setKhacPhuc] = useState<KhacPhuc[]>([]);
+  const [lichList, setLichList] = useState<LichPhanCong[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
+    let cancelled = false;
+    setLoading(true);
     Promise.all([
       fetchDanhGiaList(),
       fetchKhacPhucList().catch(() => ({ rows: [] as KhacPhuc[], total: 0 })),
+      fetchLichPhanCongList().catch(() => ({
+        rows: [] as LichPhanCong[],
+        total: 0,
+      })),
     ])
-      .then(async ([dg, kp]) => {
-        if (cancelled) return
-        const active = dg.rows.filter((r) => r.active !== 0)
-        setRows(active)
-        setKhacPhuc(kp.rows.filter((r) => r.active !== 0))
-
-        // Điểm S1..S5: lấy chi tiết tối đa 10 lượt đánh giá gần nhất
-        const latest = [...active]
-          .sort((a, b) => b.ngay_danh_gia.localeCompare(a.ngay_danh_gia) || b.id - a.id)
-          .slice(0, 10)
-        const details = await Promise.all(
-          latest.map((r) => fetchDanhGiaById(r.id).then((d) => d.sScores).catch(() => null)),
-        )
-        if (!cancelled) setSScores(details.filter((d): d is SScore[] => !!d))
+      .then(([dg, kp, lich]) => {
+        if (cancelled) return;
+        setRows(dg.rows.filter((r) => r.active !== 0));
+        setKhacPhuc(kp.rows.filter((r) => r.active !== 0));
+        setLichList(lich.rows.filter((l) => l.active !== 0));
       })
-      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : 'Không tải được dữ liệu'))
-      .finally(() => !cancelled && setLoading(false))
+      .catch(
+        (err) =>
+          !cancelled &&
+          setError(
+            err instanceof Error ? err.message : "Không tải được dữ liệu",
+          ),
+      )
+      .finally(() => !cancelled && setLoading(false));
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   const sorted = useMemo(
-    () => [...rows].sort((a, b) => b.ngay_danh_gia.localeCompare(a.ngay_danh_gia) || b.id - a.id),
+    () =>
+      [...rows].sort(
+        (a, b) => b.ngay_danh_gia.localeCompare(a.ngay_danh_gia) || b.id - a.id,
+      ),
     [rows],
-  )
+  );
 
-  // ── Thống kê tổng quan ──
+  const today = new Date();
+  const todayStr = fmt(today);
+  const thisMonth = todayStr.slice(0, 7);
+
+  // ── KPI hôm nay ──
+  const todayStats = useMemo(() => {
+    const todayRows = rows.filter((r) => r.ngay_danh_gia === todayStr);
+    const dat = todayRows.filter((r) => r.pct >= 70).length;
+    const chuaDat = todayRows.length - dat;
+    const avg = todayRows.length
+      ? Math.round(
+          todayRows.reduce((s, r) => s + r.pct, 0) / todayRows.length,
+        )
+      : 0;
+    return { luot: todayRows.length, dat, chuaDat, avg };
+  }, [rows, todayStr]);
+
+  // ── Thống kê tổng quan (luỹ kế toàn viện) ──
   const stats = useMemo(() => {
-    const n = rows.length
-    const avg = n ? Math.round(rows.reduce((s, r) => s + r.pct, 0) / n) : 0
+    const n = rows.length;
+    const avg = n ? Math.round(rows.reduce((s, r) => s + r.pct, 0) / n) : 0;
 
-    // Điểm TB từng khoa → đếm khoa đạt Xuất sắc (>= 90%)
-    const byKhoa = new Map<number, { sum: number; n: number }>()
+    const byKhoa = new Map<number, { sum: number; n: number; name: string }>();
     for (const r of rows) {
-      const cur = byKhoa.get(r.khoa_id) || { sum: 0, n: 0 }
-      cur.sum += r.pct
-      cur.n++
-      byKhoa.set(r.khoa_id, cur)
+      const cur = byKhoa.get(r.khoa_id) || {
+        sum: 0,
+        n: 0,
+        name: r.khoa?.ten_khoa || String(r.khoa_id),
+      };
+      cur.sum += r.pct;
+      cur.n++;
+      byKhoa.set(r.khoa_id, cur);
     }
-    const excellent = [...byKhoa.values()].filter((v) => v.sum / v.n >= 90).length
+    const excellent = [...byKhoa.values()].filter(
+      (v) => v.sum / v.n >= 90,
+    ).length;
 
-    const openKP = khacPhuc.filter((k) => k.trang_thai !== 'Đã xong' && k.trang_thai !== 'Hoàn thành').length
+    const openKP = khacPhuc.filter(
+      (k) => k.trang_thai !== "Đã xong" && k.trang_thai !== "Hoàn thành",
+    ).length;
 
-    // % thay đổi so với tháng trước (lượt đánh giá + tỷ lệ đạt)
-    const byMonth = new Map<string, { sum: number; n: number }>()
+    const byMonth = new Map<string, { sum: number; n: number }>();
     for (const r of rows) {
-      const ym = r.ngay_danh_gia.slice(0, 7)
-      const cur = byMonth.get(ym) || { sum: 0, n: 0 }
-      cur.sum += r.pct
-      cur.n++
-      byMonth.set(ym, cur)
+      const ym = r.ngay_danh_gia.slice(0, 7);
+      const cur = byMonth.get(ym) || { sum: 0, n: 0 };
+      cur.sum += r.pct;
+      cur.n++;
+      byMonth.set(ym, cur);
     }
-    const months = [...byMonth.keys()].sort()
-    let dLuot = 0
-    let dPct = 0
+    const months = [...byMonth.keys()].sort();
+    let dLuot = 0;
+    let dPct = 0;
     if (months.length >= 2) {
-      const cur = byMonth.get(months[months.length - 1])!
-      const prev = byMonth.get(months[months.length - 2])!
-      dLuot = prev.n ? Math.round(((cur.n - prev.n) / prev.n) * 100) : 0
-      const curAvg = cur.sum / cur.n
-      const prevAvg = prev.sum / prev.n
-      dPct = prevAvg ? Math.round(((curAvg - prevAvg) / prevAvg) * 10) / 10 : 0
+      const cur = byMonth.get(months[months.length - 1])!;
+      const prev = byMonth.get(months[months.length - 2])!;
+      dLuot = prev.n ? Math.round(((cur.n - prev.n) / prev.n) * 100) : 0;
+      const curAvg = cur.sum / cur.n;
+      const prevAvg = prev.sum / prev.n;
+      dPct = prevAvg ? Math.round(((curAvg - prevAvg) / prevAvg) * 10) / 10 : 0;
     }
 
-    return { n, avg, excellent, totalKhoa: byKhoa.size, openKP, dLuot, dPct }
-  }, [rows, khacPhuc])
+    return { n, avg, excellent, totalKhoa: byKhoa.size, openKP, dLuot, dPct, byKhoa };
+  }, [rows, khacPhuc]);
+
+  // ── Xếp hạng khoa theo tháng này ──
+  const khoaThangNay = useMemo(() => {
+    const monthRows = rows.filter((r) => r.ngay_danh_gia.startsWith(thisMonth));
+    const map = new Map<number, { sum: number; n: number; name: string }>();
+    for (const r of monthRows) {
+      const cur = map.get(r.khoa_id) || {
+        sum: 0,
+        n: 0,
+        name: r.khoa?.ten_khoa || String(r.khoa_id),
+      };
+      cur.sum += r.pct;
+      cur.n++;
+      map.set(r.khoa_id, cur);
+    }
+    return [...map.entries()]
+      .map(([khoa_id, v]) => ({
+        khoa_id,
+        khoa: v.name,
+        avg: Math.round(v.sum / v.n),
+        n: v.n,
+      }))
+      .sort((a, b) => b.avg - a.avg);
+  }, [rows, thisMonth]);
+
+  const topGood = khoaThangNay.slice(0, 5);
+  const topBad = [...khoaThangNay].reverse().slice(0, 5);
+  const topLow = [...khoaThangNay].reverse().slice(0, 6);
 
   // ── Xu hướng theo tháng (tối đa 7 tháng gần nhất) ──
   const trend = useMemo(() => {
-    const byMonth = new Map<string, { sum: number; n: number; khoa: Set<number> }>()
+    const byMonth = new Map<
+      string,
+      { sum: number; n: number; khoa: Set<number> }
+    >();
     for (const r of rows) {
-      const ym = r.ngay_danh_gia.slice(0, 7)
-      const cur = byMonth.get(ym) || { sum: 0, n: 0, khoa: new Set<number>() }
-      cur.sum += r.pct
-      cur.n++
-      cur.khoa.add(r.khoa_id)
-      byMonth.set(ym, cur)
+      const ym = r.ngay_danh_gia.slice(0, 7);
+      const cur = byMonth.get(ym) || { sum: 0, n: 0, khoa: new Set<number>() };
+      cur.sum += r.pct;
+      cur.n++;
+      cur.khoa.add(r.khoa_id);
+      byMonth.set(ym, cur);
     }
-    const months = [...byMonth.keys()].sort().slice(-7)
+    const months = [...byMonth.keys()].sort().slice(-7);
     return {
       categories: months.map(monthLabel),
       series: [
-        { name: 'Tỷ lệ đạt trung bình (%)', data: months.map((m) => Math.round(byMonth.get(m)!.sum / byMonth.get(m)!.n)) },
-        { name: 'Số khoa tham gia đánh giá', data: months.map((m) => byMonth.get(m)!.khoa.size) },
+        {
+          name: "Tỷ lệ đạt trung bình (%)",
+          data: months.map((m) =>
+            Math.round(byMonth.get(m)!.sum / byMonth.get(m)!.n),
+          ),
+        },
+        {
+          name: "Số khoa tham gia đánh giá",
+          data: months.map((m) => byMonth.get(m)!.khoa.size),
+        },
       ],
-    }
-  }, [rows])
+    };
+  }, [rows]);
 
-  // ── Tỷ lệ đạt S1..S5 (từ các lượt đánh giá gần nhất) ──
+  // ── Tỷ lệ đạt S1..S5 tháng này (từ sScores backend tính sẵn) ──
   const groupData = useMemo(() => {
-    const agg = new Map<string, { ok: number; total: number }>()
-    for (const scores of sScores) {
-      for (const s of scores) {
-        const cur = agg.get(s.id) || { ok: 0, total: 0 }
-        cur.ok += s.ok
-        cur.total += s.total
-        agg.set(s.id, cur)
+    const monthRows = rows.filter((r) => r.ngay_danh_gia.startsWith(thisMonth));
+    const agg: Record<string, { ok: number; total: number }> = {};
+    for (const r of monthRows) {
+      for (const s of r.sScores || []) {
+        const cur = agg[s.id] || { ok: 0, total: 0 };
+        cur.ok += s.ok;
+        cur.total += s.total;
+        agg[s.id] = cur;
       }
     }
-    return ['S1', 'S2', 'S3', 'S4', 'S5'].map((id) => {
-      const v = agg.get(id)
-      return v && v.total ? Math.round((v.ok / v.total) * 100) : 0
-    })
-  }, [sScores])
+    return S_IDS.map((id) => {
+      const v = agg[id];
+      return v && v.total ? Math.round((v.ok / v.total) * 100) : 0;
+    });
+  }, [rows, thisMonth]);
+
+  // ── Lịch hôm nay ──
+  const lichHomNay = useMemo(() => {
+    const thu = today.getDay() === 0 ? 7 : today.getDay();
+    return lichList.filter((l) => {
+      if (l.loai_lich === "dinh_ky") {
+        if (l.thu_trong_tuan !== thu) return false;
+        if (l.ngay_thuc_hien && todayStr < l.ngay_thuc_hien) return false;
+        return true;
+      }
+      return l.ngay_thuc_hien === todayStr;
+    });
+  }, [lichList, todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isLichDone = (l: LichPhanCong) =>
+    rows.some(
+      (r) =>
+        r.khoa_id === l.khoa_id &&
+        r.ngay_danh_gia === todayStr &&
+        (!l.vitri_type_id || r.vitri_type_id === l.vitri_type_id),
+    );
 
   const statCards = [
-    { label: 'Tổng lượt đánh giá', value: String(stats.n), change: stats.dLuot, icon: ClipboardCheck },
-    { label: 'Tỷ lệ đạt trung bình', value: `${stats.avg}%`, change: stats.dPct, icon: Percent },
-    { label: 'Khoa/Phòng đạt Xuất sắc', value: `${stats.excellent} / ${stats.totalKhoa}`, change: 0, icon: Building2 },
-    { label: 'Hành động khắc phục đang mở', value: String(stats.openKP), change: 0, icon: Wrench },
-  ]
+    {
+      label: "Tổng lượt đánh giá",
+      value: String(stats.n),
+      change: stats.dLuot,
+      icon: ClipboardCheck,
+    },
+    {
+      label: "Tỷ lệ đạt trung bình",
+      value: `${stats.avg}%`,
+      change: stats.dPct,
+      icon: Percent,
+    },
+    {
+      label: "Khoa/Phòng đạt Xuất sắc",
+      value: `${stats.excellent} / ${stats.totalKhoa}`,
+      change: 0,
+      icon: Building2,
+    },
+    {
+      label: "Hành động khắc phục đang mở",
+      value: String(stats.openKP),
+      change: 0,
+      icon: Wrench,
+    },
+  ];
 
-  if (loading) return <LoadingRow text="Đang tải số liệu tổng quan..." />
+  if (loading) return <LoadingRow text="Đang tải số liệu tổng quan..." />;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Analytics — Tổng quan chất lượng 5S</h1>
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+          Thống kê — Tổng quan chất lượng 5S
+        </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Số liệu tổng hợp toàn viện từ các lượt đánh giá đã lưu trên máy chủ.
         </p>
@@ -163,6 +288,42 @@ export default function Dashboard() {
         <EmptyState message="Chưa có lượt đánh giá nào. Vào Bảng kiểm để chấm điểm 5S đầu tiên." />
       ) : (
         <>
+          {/* ── KPI hôm nay ── */}
+          <div
+            className="rounded-2xl p-5 text-white"
+            style={{
+              background: "linear-gradient(135deg,#1B3A5C,#185FA5)",
+            }}
+          >
+            <p className="mb-3 text-xs font-bold uppercase tracking-wide opacity-70">
+              📅 Hôm nay — {today.toLocaleDateString("vi-VN")}
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="text-center">
+                <p className="text-3xl font-extrabold">{todayStats.luot}</p>
+                <p className="text-xs opacity-80">Lượt đánh giá</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-extrabold text-emerald-300">
+                  {todayStats.dat}
+                </p>
+                <p className="text-xs opacity-80">Đạt / Đạt tốt</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-extrabold text-red-300">
+                  {todayStats.chuaDat}
+                </p>
+                <p className="text-xs opacity-80">Chưa đạt</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-extrabold">
+                  {todayStats.luot ? `${todayStats.avg}%` : "–"}
+                </p>
+                <p className="text-xs opacity-80">Điểm TB hôm nay</p>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {statCards.map((s) => (
               <StatCard key={s.label} {...s} />
@@ -171,8 +332,14 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             <div className="xl:col-span-2">
-              <ChartCard title="Xu hướng đánh giá theo tháng" subtitle={`${trend.categories.length} tháng gần nhất`}>
-                <TrendChart categories={trend.categories} series={trend.series} />
+              <ChartCard
+                title="Xu hướng đánh giá theo tháng"
+                subtitle={`${trend.categories.length} tháng gần nhất`}
+              >
+                <TrendChart
+                  categories={trend.categories}
+                  series={trend.series}
+                />
               </ChartCard>
             </div>
             <ChartCard title="Mục tiêu tỷ lệ đạt" subtitle="Toàn viện — luỹ kế">
@@ -183,45 +350,235 @@ export default function Dashboard() {
             </ChartCard>
           </div>
 
+          {/* ── Lịch hôm nay · Khoa cần chú ý · Điểm S1-S5 tháng này ── */}
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <div className="xl:col-span-2">
-              <ChartCard title="Kết quả gần đây" subtitle="5 lượt đánh giá mới nhất">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
-                        <th className="pb-3 pr-4 font-medium">Khoa/Phòng</th>
-                        <th className="pb-3 pr-4 font-medium">Vị trí</th>
-                        <th className="pb-3 pr-4 font-medium">Ngày</th>
-                        <th className="pb-3 pr-4 font-medium">% Đạt</th>
-                        <th className="pb-3 font-medium">Xếp loại</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sorted.slice(0, 5).map((r) => (
-                        <tr key={r.id} className="border-b border-gray-50 last:border-0 dark:border-gray-800">
-                          <td className="py-3 pr-4 font-medium text-gray-700 dark:text-gray-200">{r.khoa?.ten_khoa || r.khoa_id}</td>
-                          <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">{r.vitri_type?.ten_vitri || '—'}</td>
-                          <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">{r.ngay_danh_gia}</td>
-                          <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">{r.pct}%</td>
-                          <td className="py-3">
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${toneBadgeClass[toneFromPct(r.pct)]}`}>
-                              {r.xep_loai}
+            <ChartCard title="📅 Lịch đánh giá hôm nay" subtitle={`${lichHomNay.length} buổi`}>
+              {lichHomNay.length === 0 ? (
+                <p className="text-sm text-gray-400">Không có lịch hôm nay</p>
+              ) : (
+                <ul className="max-h-[220px] space-y-2 overflow-y-auto">
+                  {lichHomNay.map((l) => {
+                    const done = isLichDone(l);
+                    return (
+                      <li
+                        key={l.id}
+                        className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
+                          done
+                            ? "bg-emerald-50 dark:bg-emerald-500/10"
+                            : "bg-amber-50 dark:bg-amber-500/10"
+                        }`}
+                      >
+                        <span className="font-medium text-gray-700 dark:text-gray-200">
+                          {l.khoa?.ten_khoa}
+                          {l.vitri_type?.ten_vitri && (
+                            <span className="ml-1 font-normal text-gray-400">
+                              · {l.vitri_type.ten_vitri}
                             </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </ChartCard>
-            </div>
-            <ChartCard title="Tỷ lệ đạt theo nhóm 5S" subtitle="S1 → S5 (10 lượt gần nhất)">
+                          )}
+                        </span>
+                        <span
+                          className={`text-xs font-semibold ${
+                            done
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-amber-600 dark:text-amber-400"
+                          }`}
+                        >
+                          {done ? "✅ Đã xong" : "⏳ Chưa"}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </ChartCard>
+
+            <ChartCard title="🔴 Khoa cần chú ý" subtitle="Điểm thấp nhất tháng này">
+              {topLow.length === 0 ? (
+                <p className="text-sm text-gray-400">Chưa có dữ liệu tháng này</p>
+              ) : (
+                <ul className="max-h-[220px] space-y-2 overflow-y-auto">
+                  {topLow.map((k, i) => (
+                    <li
+                      key={k.khoa_id}
+                      className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/50"
+                    >
+                      <span className="text-gray-700 dark:text-gray-200">
+                        <span className="mr-1.5 text-gray-400">{i + 1}.</span>
+                        {k.khoa}
+                      </span>
+                      <span
+                        className="font-bold"
+                        style={{
+                          color:
+                            k.avg < 60 ? "#E24B4A" : k.avg < 75 ? "#BA7517" : "#185FA5",
+                        }}
+                      >
+                        {k.avg}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ChartCard>
+
+            <ChartCard title="Tỷ lệ đạt theo nhóm 5S" subtitle="Tháng này">
               <GroupBreakdownChart data={groupData} />
+            </ChartCard>
+          </div>
+
+          {/* ── Top 5 khoa tốt / cần cải thiện ── */}
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <ChartCard title="🏆 Top 5 khoa tốt nhất tháng" subtitle={`Tháng ${thisMonth.slice(5)}/${thisMonth.slice(0, 4)}`}>
+              {topGood.length === 0 ? (
+                <p className="text-sm text-gray-400">Chưa có dữ liệu tháng này</p>
+              ) : (
+                <ul className="space-y-2">
+                  {topGood.map((k, i) => (
+                    <li
+                      key={k.khoa_id}
+                      className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-500/10"
+                    >
+                      <span className="font-medium text-gray-700 dark:text-gray-200">
+                        <span className="mr-1.5 text-gray-400">#{i + 1}</span>
+                        {k.khoa}
+                      </span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                        {k.avg}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ChartCard>
+            <ChartCard title="⚠ Top 5 khoa cần cải thiện" subtitle={`Tháng ${thisMonth.slice(5)}/${thisMonth.slice(0, 4)}`}>
+              {topBad.length === 0 ? (
+                <p className="text-sm text-gray-400">Chưa có dữ liệu tháng này</p>
+              ) : (
+                <ul className="space-y-2">
+                  {topBad.map((k, i) => (
+                    <li
+                      key={k.khoa_id}
+                      className="flex items-center justify-between rounded-lg bg-red-50 px-3 py-2 text-sm dark:bg-red-500/10"
+                    >
+                      <span className="font-medium text-gray-700 dark:text-gray-200">
+                        <span className="mr-1.5 text-gray-400">#{i + 1}</span>
+                        {k.khoa}
+                      </span>
+                      <span className="font-bold text-red-500">{k.avg}%</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ChartCard>
+          </div>
+
+          {/* ── Bảng xếp hạng khoa đầy đủ + Kết quả gần đây ── */}
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <ChartCard title="🏅 Bảng xếp hạng khoa — tháng này" subtitle="Sắp xếp theo tỷ lệ đạt trung bình">
+              <div className="max-h-[340px] overflow-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 bg-white dark:bg-gray-900">
+                    <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                      <th className="py-2 pr-3 font-medium">Hạng</th>
+                      <th className="py-2 pr-3 font-medium">Khoa/Phòng</th>
+                      <th className="py-2 pr-3 font-medium">Lượt</th>
+                      <th className="py-2 font-medium">Tỷ lệ đạt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {khoaThangNay.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-6 text-center text-gray-400">
+                          Chưa có dữ liệu tháng này
+                        </td>
+                      </tr>
+                    )}
+                    {khoaThangNay.map((k, i) => (
+                      <tr key={k.khoa_id} className="border-b border-gray-50 last:border-0 dark:border-gray-800">
+                        <td className="py-2 pr-3">
+                          <span
+                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                              i === 0
+                                ? "bg-amber-100 text-amber-700"
+                                : i === 1
+                                  ? "bg-gray-200 text-gray-600"
+                                  : i === 2
+                                    ? "bg-orange-100 text-orange-700"
+                                    : "text-gray-400"
+                            }`}
+                          >
+                            {i + 1}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3 font-medium text-gray-700 dark:text-gray-200">{k.khoa}</td>
+                        <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">{k.n}</td>
+                        <td className="py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${k.avg}%`,
+                                  background: k.avg >= 90 ? "#1D9E75" : k.avg >= 75 ? "#185FA5" : k.avg >= 60 ? "#BA7517" : "#E24B4A",
+                                }}
+                              />
+                            </div>
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">{k.avg}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </ChartCard>
+
+            <ChartCard title="Kết quả gần đây" subtitle="5 lượt đánh giá mới nhất">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                      <th className="pb-3 pr-4 font-medium">Khoa/Phòng</th>
+                      <th className="pb-3 pr-4 font-medium">Vị trí</th>
+                      <th className="pb-3 pr-4 font-medium">Ngày</th>
+                      <th className="pb-3 pr-4 font-medium">% Đạt</th>
+                      <th className="pb-3 font-medium">Xếp loại</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sorted.slice(0, 5).map((r) => (
+                      <tr
+                        key={r.id}
+                        className="border-b border-gray-50 last:border-0 dark:border-gray-800"
+                      >
+                        <td className="py-3 pr-4 font-medium text-gray-700 dark:text-gray-200">
+                          {r.khoa?.ten_khoa || r.khoa_id}
+                        </td>
+                        <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">
+                          {r.vitri_type?.ten_vitri || "—"}
+                        </td>
+                        <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">
+                          {r.ngay_danh_gia}
+                        </td>
+                        <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">
+                          {r.pct}%
+                        </td>
+                        <td className="py-3">
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${toneBadgeClass[toneFromPct(r.pct)]}`}
+                          >
+                            {r.xep_loai}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </ChartCard>
           </div>
         </>
       )}
     </div>
-  )
+  );
 }

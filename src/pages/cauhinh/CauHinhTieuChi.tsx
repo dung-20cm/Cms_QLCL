@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ListChecks, Plus, Pencil, Trash2, Check, AlertTriangle } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ListChecks,
+  Plus,
+  Pencil,
+  Trash2,
+  Check,
+  AlertTriangle,
+} from "lucide-react";
 import {
   PageHeader,
   Field,
@@ -11,141 +18,172 @@ import {
   ErrorBanner,
   Modal,
   useCatalog,
-} from '../../components/ui/PageShell'
-import { fetchChecklistItems, createUpdateChecklistItem, deleteChecklistItem } from '../../features/qlcl/api'
-import type { ChecklistItem } from '../../features/qlcl/types'
+} from "../../components/ui/PageShell";
+import {
+  fetchChecklistItems,
+  createUpdateChecklistItem,
+  deleteChecklistItem,
+} from "../../features/qlcl/api";
+import type { ChecklistItem } from "../../features/qlcl/types";
 
 // 5 nhom S co dinh - dong bo mau voi Bang kiem / du lieu seed (checklistItem.data.json)
 const S_GROUPS = [
-  { id: 'S1', name: 'Sang loc', color: '#D85A30', lt: '#FAECE7' },
-  { id: 'S2', name: 'Sap xep', color: '#BA7517', lt: '#FAEEDA' },
-  { id: 'S3', name: 'Sach se', color: '#1D9E75', lt: '#E1F5EE' },
-  { id: 'S4', name: 'San soc', color: '#185FA5', lt: '#E6F1FB' },
-  { id: 'S5', name: 'San sang', color: '#534AB7', lt: '#EEEDFE' },
-] as const
+  { id: "S1", name: "Sàng lọc", color: "#D85A30", lt: "#FAECE7" },
+  { id: "S2", name: "Sắp xếp", color: "#BA7517", lt: "#FAEEDA" },
+  { id: "S3", name: "Sạch sẽ", color: "#1D9E75", lt: "#E1F5EE" },
+  { id: "S4", name: "Săn sóc", color: "#185FA5", lt: "#E6F1FB" },
+  { id: "S5", name: "Sẵn sàng", color: "#534AB7", lt: "#EEEDFE" },
+] as const;
 
-type SGroupMeta = (typeof S_GROUPS)[number]
+type SGroupMeta = (typeof S_GROUPS)[number];
 
 // Mot "tieu chi chung" = gop cac ban ghi checklist_item co cung noi dung (s_id/sub/tc)
 // va co mat o DU tat ca vi tri danh gia hien co -- vi DB van luu theo tung vi tri
 // (vitri_type_id bat buoc), nhung UI quan ly nhu 1 tieu chi dung chung moi vi tri.
 interface GlobalCriterion {
-  key: string
-  s_id: string
-  sub: string
-  tc: string
-  thu_tu: number
-  ids: number[] // id cua tung dong (1 dong / vi tri) ung voi tieu chi chung nay
+  key: string;
+  s_id: string;
+  sub: string;
+  tc: string;
+  thu_tu: number;
+  ids: number[]; // id cua tung dong (1 dong / vi tri) ung voi tieu chi chung nay
 }
 
 interface FormState {
-  key?: string
-  ids?: number[]
-  s_id: string
-  s_name: string
-  s_color: string
-  s_lt: string
-  sub: string
-  tc: string
-  thu_tu: number
+  key?: string;
+  ids?: number[];
+  s_id: string;
+  s_name: string;
+  s_color: string;
+  s_lt: string;
+  sub: string;
+  tc: string;
+  thu_tu: number;
 }
 
 // Muc 4: CRUD tieu chi bang kiem (checklist_item) -- dung chung cho MOI vi tri danh gia.
 // Giao dien mo phong Bang kiem: 5 khung S1-S5, moi khung co nut them moi + icon sua/xoa tung tieu chi.
 // Them/sua/xoa 1 tieu chi o day se ap dung dong thoi cho tat ca vi tri danh gia hien co.
 export default function CauHinhTieuChi() {
-  const { vitriTypes, status: catalogStatus } = useCatalog()
+  const { vitriTypes, status: catalogStatus } = useCatalog();
 
   // Tieu chi hien thi lay tu 1 "vi tri tham chieu" (vi tri dau tien) -- dam bao
   // luon co du lieu de hien thi (khong phu thuoc viec cac vi tri khac co du 21
   // tieu chi giong het hay khong). allItems (toan bo, moi vi tri) chi dung de
   // xac dinh tieu chi nao da "phu du" moi vi tri, phuc vu sua/xoa dong loat.
-  const refVitriId = vitriTypes[0]?.id
+  const refVitriId = vitriTypes[0]?.id;
 
-  const [refItems, setRefItems] = useState<ChecklistItem[]>([])
-  const [allItems, setAllItems] = useState<ChecklistItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [refItems, setRefItems] = useState<ChecklistItem[]>([]);
+  const [allItems, setAllItems] = useState<ChecklistItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [form, setForm] = useState<FormState | null>(null)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<FormState | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const [deleting, setDeleting] = useState<GlobalCriterion | null>(null)
-  const [deleteBusy, setDeleteBusy] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<GlobalCriterion | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!refVitriId) {
-      setRefItems([])
-      setAllItems([])
-      setLoading(false)
-      return
+      setRefItems([]);
+      setAllItems([]);
+      setLoading(false);
+      return;
     }
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     Promise.all([fetchChecklistItems(refVitriId), fetchChecklistItems()])
       .then(([refRes, allRes]) => {
-        setRefItems(refRes.rows)
-        setAllItems(allRes.rows)
+        setRefItems(refRes.rows);
+        setAllItems(allRes.rows);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Khong tai duoc danh sach tieu chi'))
-      .finally(() => setLoading(false))
-  }, [refVitriId])
+      .catch((err) =>
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Khong tai duoc danh sach tieu chi",
+        ),
+      )
+      .finally(() => setLoading(false));
+  }, [refVitriId]);
 
-  useEffect(load, [load])
+  useEffect(load, [load]);
 
   const globalCriteria = useMemo<GlobalCriterion[]>(() => {
-    const allVitriIds = vitriTypes.map((v) => v.id)
+    const allVitriIds = vitriTypes.map((v) => v.id);
     // key -> danh sach id + tap vitri_type_id co tieu chi cung noi dung (tren toan bo du lieu)
-    const groupMap = new Map<string, { ids: number[]; vitriIds: Set<number> }>()
+    const groupMap = new Map<
+      string,
+      { ids: number[]; vitriIds: Set<number> }
+    >();
     for (const it of allItems) {
-      const key = `${it.s_id}||${it.sub || ''}||${it.tc}`
-      let g = groupMap.get(key)
+      const key = `${it.s_id}||${it.sub || ""}||${it.tc}`;
+      let g = groupMap.get(key);
       if (!g) {
-        g = { ids: [], vitriIds: new Set() }
-        groupMap.set(key, g)
+        g = { ids: [], vitriIds: new Set() };
+        groupMap.set(key, g);
       }
-      g.ids.push(it.id)
-      g.vitriIds.add(it.vitri_type_id)
+      g.ids.push(it.id);
+      g.vitriIds.add(it.vitri_type_id);
     }
     return refItems.map((it) => {
-      const key = `${it.s_id}||${it.sub || ''}||${it.tc}`
-      const g = groupMap.get(key)
+      const key = `${it.s_id}||${it.sub || ""}||${it.tc}`;
+      const g = groupMap.get(key);
       // Chi coi la "dung chung moi vi tri" (cascade sua/xoa ca nhom) neu tieu chi
       // nay da co mat o DU tat ca vi tri hien co; neu khong (du lieu cu rieng
       // tung vi tri) thi sua/xoa chi anh huong dung dong cua vi tri tham chieu.
-      const coversAll = g && allVitriIds.length > 0 && allVitriIds.every((id) => g.vitriIds.has(id))
+      const coversAll =
+        g &&
+        allVitriIds.length > 0 &&
+        allVitriIds.every((id) => g.vitriIds.has(id));
       return {
         key,
         s_id: it.s_id,
-        sub: it.sub || '',
+        sub: it.sub || "",
         tc: it.tc,
         thu_tu: it.thu_tu,
         ids: coversAll ? g!.ids : [it.id],
-      }
-    })
-  }, [refItems, allItems, vitriTypes])
+      };
+    });
+  }, [refItems, allItems, vitriTypes]);
 
   const groups = useMemo(
     () =>
       S_GROUPS.map((g) => ({
         ...g,
-        items: globalCriteria.filter((c) => c.s_id === g.id).sort((a, b) => a.thu_tu - b.thu_tu),
+        items: globalCriteria
+          .filter((c) => c.s_id === g.id)
+          .sort((a, b) => a.thu_tu - b.thu_tu),
       })),
     [globalCriteria],
-  )
+  );
 
   function openAdd(g: SGroupMeta) {
-    if (vitriTypes.length === 0) return
-    setFormError(null)
-    const maxThuTu = Math.max(0, ...globalCriteria.filter((c) => c.s_id === g.id).map((c) => c.thu_tu || 0))
-    setForm({ s_id: g.id, s_name: g.name, s_color: g.color, s_lt: g.lt, sub: '', tc: '', thu_tu: maxThuTu + 1 })
+    if (vitriTypes.length === 0) return;
+    setFormError(null);
+    const maxThuTu = Math.max(
+      0,
+      ...globalCriteria
+        .filter((c) => c.s_id === g.id)
+        .map((c) => c.thu_tu || 0),
+    );
+    setForm({
+      s_id: g.id,
+      s_name: g.name,
+      s_color: g.color,
+      s_lt: g.lt,
+      sub: "",
+      tc: "",
+      thu_tu: maxThuTu + 1,
+    });
   }
 
   function openEdit(c: GlobalCriterion) {
-    const meta = S_GROUPS.find((g) => g.id === c.s_id)!
-    setFormError(null)
+    const meta = S_GROUPS.find((g) => g.id === c.s_id)!;
+    setFormError(null);
     setForm({
       key: c.key,
       ids: c.ids,
@@ -156,15 +194,17 @@ export default function CauHinhTieuChi() {
       sub: c.sub,
       tc: c.tc,
       thu_tu: c.thu_tu,
-    })
+    });
   }
 
   async function handleSubmit() {
-    if (!form) return
-    if (!form.tc.trim()) return setFormError('Vui long nhap noi dung tieu chi!')
-    if (vitriTypes.length === 0) return setFormError('Chua co vi tri danh gia nao trong he thong!')
-    setSaving(true)
-    setFormError(null)
+    if (!form) return;
+    if (!form.tc.trim())
+      return setFormError("Vui long nhap noi dung tieu chi!");
+    if (vitriTypes.length === 0)
+      return setFormError("Chua co vi tri danh gia nao trong he thong!");
+    setSaving(true);
+    setFormError(null);
     try {
       if (form.ids && form.ids.length > 0) {
         // Sua: cap nhat dong thoi tat ca cac dong (moi vi tri 1 dong) cua tieu chi nay
@@ -177,7 +217,7 @@ export default function CauHinhTieuChi() {
               thu_tu: form.thu_tu,
             }),
           ),
-        )
+        );
       } else {
         // Them moi: tao 1 dong cho MOI vi tri danh gia hien co -- ap dung cho moi vi tri
         await Promise.all(
@@ -193,48 +233,50 @@ export default function CauHinhTieuChi() {
               thu_tu: form.thu_tu,
             }),
           ),
-        )
+        );
       }
-      setForm(null)
-      load()
+      setForm(null);
+      load();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Luu that bai!')
+      setFormError(err instanceof Error ? err.message : "Luu that bai!");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!deleting) return
-    setDeleteBusy(true)
-    setDeleteError(null)
+    if (!deleting) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
     try {
-      await Promise.all(deleting.ids.map((id) => deleteChecklistItem(id)))
-      setDeleting(null)
-      load()
+      await Promise.all(deleting.ids.map((id) => deleteChecklistItem(id)));
+      setDeleting(null);
+      load();
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Xoa that bai!')
+      setDeleteError(err instanceof Error ? err.message : "Xoa that bai!");
     } finally {
-      setDeleteBusy(false)
+      setDeleteBusy(false);
     }
   }
 
-  const isLoading = catalogStatus === 'loading' || catalogStatus === 'idle' || loading
+  const isLoading =
+    catalogStatus === "loading" || catalogStatus === "idle" || loading;
 
   return (
     <div>
       <PageHeader
         icon={<ListChecks size={22} />}
-        title="Cau hinh tieu chi bang kiem"
-        subtitle={`Tieu chi 5S dung chung cho moi vi tri danh gia${vitriTypes.length > 0 ? ` (${vitriTypes.length} vi tri)` : ''} -- them/sua/xoa 1 tieu chi se ap dung cho tat ca vi tri`}
+        title="Cấu hình tiêu chí bảng kiểm - 5S"
+        subtitle={`Tiêu chí 5S dùng chung cho mỗi vị trí đánh giá${vitriTypes.length > 0 ? ` (${vitriTypes.length} vị trí)` : ""} -- thêm/sửa/xóa 1 tiêu chí sẽ áp dụng cho tất cả vị trí`}
       />
 
       {error && <ErrorBanner message={error} onRetry={load} />}
 
-      {vitriTypes.length === 0 && catalogStatus === 'succeeded' && (
+      {vitriTypes.length === 0 && catalogStatus === "succeeded" && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
-          Chua co vi tri danh gia nao trong he thong. Vao <b>Cau hinh {'->'} Vi tri danh gia</b> de tao it nhat 1 vi
-          tri truoc khi them tieu chi.
+          Chưa có vị trí đánh giá nào trong hệ thống.{" "}
+          <b>Cấu hình {"->"} Vị trí đánh giá</b> để tạo ít nhất 1 vị trí trước
+          khi thêm tiêu chí.
         </div>
       )}
 
@@ -247,7 +289,10 @@ export default function CauHinhTieuChi() {
               key={g.id}
               className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900"
             >
-              <div className="flex items-center justify-between gap-2 px-4 py-3" style={{ backgroundColor: g.lt }}>
+              <div
+                className="flex items-center justify-between gap-2 px-4 py-3"
+                style={{ backgroundColor: g.lt }}
+              >
                 <div className="flex items-center gap-2.5">
                   <span
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold text-white"
@@ -255,9 +300,14 @@ export default function CauHinhTieuChi() {
                   >
                     {g.id}
                   </span>
-                  <span className="text-sm font-semibold" style={{ color: g.color }}>{g.name}</span>
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: g.color }}
+                  >
+                    {g.name}
+                  </span>
                   <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-medium text-gray-600">
-                    {g.items.length} tieu chi
+                    {g.items.length} tiêu chí
                   </span>
                 </div>
                 <button
@@ -266,24 +316,32 @@ export default function CauHinhTieuChi() {
                   disabled={vitriTypes.length === 0}
                   onClick={() => openAdd(g)}
                 >
-                  <Plus size={13} /> Them moi
+                  <Plus size={13} /> Thêm mới
                 </button>
               </div>
               {g.items.length === 0 ? (
                 <div className="px-4 py-6 text-center text-xs text-gray-400">
-                  Chua co tieu chi nao trong nhom {g.name}.
+                  Chưa có tiêu chí nào trong nhóm {g.name}.
                 </div>
               ) : (
                 <ul className="divide-y divide-gray-50 dark:divide-gray-800">
                   {g.items.map((c) => (
-                    <li key={c.key} className="flex items-start gap-3 px-4 py-3">
+                    <li
+                      key={c.key}
+                      className="flex items-start gap-3 px-4 py-3"
+                    >
                       <div className="min-w-0 flex-1">
                         {c.sub && (
-                          <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: g.color }}>
+                          <p
+                            className="text-[11px] font-semibold uppercase tracking-wide"
+                            style={{ color: g.color }}
+                          >
                             {c.sub}
                           </p>
                         )}
-                        <p className="mt-0.5 text-sm leading-snug text-gray-700 dark:text-gray-300">{c.tc}</p>
+                        <p className="mt-0.5 text-sm leading-snug text-gray-700 dark:text-gray-300">
+                          {c.tc}
+                        </p>
                       </div>
                       <div className="flex shrink-0 gap-1.5 pt-0.5">
                         <button
@@ -297,8 +355,8 @@ export default function CauHinhTieuChi() {
                           className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 dark:border-gray-700"
                           title="Xoa"
                           onClick={() => {
-                            setDeleteError(null)
-                            setDeleting(c)
+                            setDeleteError(null);
+                            setDeleting(c);
                           }}
                         >
                           <Trash2 size={14} />
@@ -314,20 +372,31 @@ export default function CauHinhTieuChi() {
       )}
 
       <p className="mt-3 text-xs text-gray-400">
-        Xoa tieu chi la xoa mem (an khoi bang kiem o moi vi tri) -- du lieu cac luot danh gia cu da dung tieu chi
-        nay van duoc giu nguyen de tra cuu bao cao.
+        Xóa tiêu chí là xóa mềm (ẩn khỏi bảng kiểm ở mọi vị trí) -- dữ liệu các
+        lượt đánh giá cũ đã dùng tiêu chí này vẫn được giữ nguyên để tra cứu báo
+        cáo.
       </p>
 
       {/* Modal them / sua tieu chi */}
       <Modal
         open={!!form}
-        title={form?.ids ? `Sua tieu chi -- ${form.s_id}` : `Them tieu chi moi -- ${form?.s_id ?? ''}`}
+        title={
+          form?.ids
+            ? `Sửa tiêu chí -- ${form.s_id}`
+            : `Thêm tiêu chí mới -- ${form?.s_id ?? ""}`
+        }
         onClose={() => setForm(null)}
         footer={
           <>
-            <button className={btnSecondary} onClick={() => setForm(null)}>Huy</button>
-            <button className={btnPrimary} disabled={saving} onClick={handleSubmit}>
-              <Check size={14} /> {saving ? 'Dang luu...' : 'Luu'}
+            <button className={btnSecondary} onClick={() => setForm(null)}>
+              Huy
+            </button>
+            <button
+              className={btnPrimary}
+              disabled={saving}
+              onClick={handleSubmit}
+            >
+              <Check size={14} /> {saving ? "Dang luu..." : "Luu"}
             </button>
           </>
         }
@@ -343,30 +412,36 @@ export default function CauHinhTieuChi() {
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium sm:col-span-3"
               style={{ backgroundColor: form.s_lt, color: form.s_color }}
             >
-              Nhom {form.s_id} -- {form.s_name} - Ap dung cho tat ca {vitriTypes.length} vi tri danh gia
+              Nhóm {form.s_id} -- {form.s_name} - Áp dụng cho tất cả{" "}
+              {vitriTypes.length} vị trí đánh giá
             </div>
-            <Field label="Ma tieu chi con (VD: AT1, 3 Khong (1)...)" className="sm:col-span-2">
+            <Field
+              label="Mã tiêu chí con (VD: AT1, 3 Không (1)...)"
+              className="sm:col-span-2"
+            >
               <input
                 className={inputCls}
                 value={form.sub}
                 onChange={(e) => setForm({ ...form, sub: e.target.value })}
-                placeholder="Khong bat buoc"
+                placeholder="Không bắt buộc"
               />
             </Field>
-            <Field label="Thu tu">
+            <Field label="Thứ tự">
               <input
                 type="number"
                 className={inputCls}
                 value={form.thu_tu}
-                onChange={(e) => setForm({ ...form, thu_tu: Number(e.target.value) })}
+                onChange={(e) =>
+                  setForm({ ...form, thu_tu: Number(e.target.value) })
+                }
               />
             </Field>
-            <Field label="Noi dung tieu chi *" className="sm:col-span-3">
+            <Field label="Nội dung tiêu chí *" className="sm:col-span-3">
               <textarea
                 className={`${inputCls} h-24 resize-none py-2`}
                 value={form.tc}
                 onChange={(e) => setForm({ ...form, tc: e.target.value })}
-                placeholder="VD: Khong co do dung ca nhan cua nguoi benh/nguoi nha de lon xon ngoai khu vuc quy dinh"
+                placeholder="VD: Không có đồ dùng cá nhân của người bệnh/người nhà để lọt xon ngoài khu vực quy định"
               />
             </Field>
           </div>
@@ -376,13 +451,20 @@ export default function CauHinhTieuChi() {
       {/* Modal canh bao xoa -- nhan manh anh huong toi bao cao truoc khi xoa that */}
       <Modal
         open={!!deleting}
-        title="Xoa tieu chi -- can xac nhan"
+        title="Xóa tiêu chí -- cần xác nhận"
         onClose={() => setDeleting(null)}
         footer={
           <>
-            <button className={btnSecondary} onClick={() => setDeleting(null)}>Huy</button>
-            <button className={btnDanger} disabled={deleteBusy} onClick={handleDelete}>
-              <Trash2 size={14} /> {deleteBusy ? 'Dang xoa...' : 'Toi chac chan, xoa tieu chi'}
+            <button className={btnSecondary} onClick={() => setDeleting(null)}>
+              Hủy
+            </button>
+            <button
+              className={btnDanger}
+              disabled={deleteBusy}
+              onClick={handleDelete}
+            >
+              <Trash2 size={14} />{" "}
+              {deleteBusy ? "Đang xóa..." : "Tôi chắc chắn, xóa tiêu chí"}
             </button>
           </>
         }
@@ -390,11 +472,12 @@ export default function CauHinhTieuChi() {
         <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           <AlertTriangle size={18} className="mt-0.5 shrink-0" />
           <p>
-            Xoa tieu chi {deleting?.sub && <b>{deleting.sub} -- </b>}
-            <b>"{deleting?.tc}"</b> se <b>anh huong den bao cao, bang tong hop va bieu do xu huong</b> o{' '}
-            <b>tat ca {deleting?.ids.length ?? 0} vi tri danh gia</b> dang dung tieu chi nay (diem % nhom{' '}
-            {deleting?.s_id} cua cac luot danh gia lien quan co the thay doi cach hien thi). Ban co chac chan muon
-            xoa?
+            Xóa tiêu chí {deleting?.sub && <b>{deleting.sub} -- </b>}
+            <b>"{deleting?.tc}"</b> sẽ{" "}
+            <b>ảnh hưởng đến báo cáo, bảng tổng hợp và biểu đồ xu hướng</b> ở{" "}
+            <b>tất cả {deleting?.ids.length ?? 0} vị trí đánh giá</b> đang dùng
+            tiêu chí này (điểm % nhóm {deleting?.s_id} của các lượt đánh giá
+            liên quan có thể thay đổi cách hiển thị). ạn có chắc chắn muốn xóa?
           </p>
         </div>
         {deleteError && (
@@ -404,5 +487,5 @@ export default function CauHinhTieuChi() {
         )}
       </Modal>
     </div>
-  )
+  );
 }

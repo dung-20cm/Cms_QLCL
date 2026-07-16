@@ -48,17 +48,62 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { to: "/", label: "Analytics", icon: LayoutGrid, permission: PERM_XEM_TONG_HOP },
-  { to: "/bang-kiem", label: "Bảng kiểm", icon: ClipboardList, permission: PERM_DANH_GIA },
-  { to: "/lich-danh-gia", label: "Lịch đánh giá", icon: CalendarDays, permission: PERM_XEM_LICH },
-  { to: "/zalo-5s", label: "Nhóm Zalo 5S", icon: ImageIcon, permission: PERM_XEM_ANH_5S },
+  {
+    to: "/",
+    label: "Thống kê",
+    icon: LayoutGrid,
+    permission: PERM_XEM_TONG_HOP,
+  },
+  {
+    to: "/bang-kiem",
+    label: "Bảng kiểm",
+    icon: ClipboardList,
+    permission: PERM_DANH_GIA,
+  },
+  {
+    to: "/lich-danh-gia",
+    label: "Lịch đánh giá",
+    icon: CalendarDays,
+    permission: PERM_XEM_LICH,
+  },
+  {
+    to: "/zalo-5s",
+    label: "Nhóm Zalo 5S",
+    icon: ImageIcon,
+    permission: PERM_XEM_ANH_5S,
+  },
   { to: "/anh-5s", label: "Ảnh 5S", icon: Camera, permission: PERM_XEM_ANH_5S },
-  { to: "/tong-hop", label: "Tổng hợp", icon: Table2, permission: PERM_XEM_TONG_HOP },
-  { to: "/xu-huong", label: "Xu hướng", icon: TrendingUp, permission: PERM_XEM_TONG_HOP },
-  { to: "/tien-do-kp", label: "Tiến độ KP", icon: Wrench, permission: PERM_XEM_TIEN_DO_KP },
-  { to: "/bao-cao", label: "Báo cáo", icon: Printer, permission: PERM_XEM_TONG_HOP },
+  {
+    to: "/tong-hop",
+    label: "Tổng hợp",
+    icon: Table2,
+    permission: PERM_XEM_TONG_HOP,
+  },
+  {
+    to: "/xu-huong",
+    label: "Xu hướng",
+    icon: TrendingUp,
+    permission: PERM_XEM_TONG_HOP,
+  },
+  {
+    to: "/tien-do-kp",
+    label: "Tiến độ KP",
+    icon: Wrench,
+    permission: PERM_XEM_TIEN_DO_KP,
+  },
+  {
+    to: "/bao-cao",
+    label: "Báo cáo",
+    icon: Printer,
+    permission: PERM_XEM_TONG_HOP,
+  },
   { to: "/huong-dan", label: "Hướng dẫn", icon: BookOpen },
-  { to: "/tai-khoan", label: "Tài khoản", icon: Users, permission: PERM_QUAN_LY_TAI_KHOAN },
+  {
+    to: "/tai-khoan",
+    label: "Tài khoản",
+    icon: Users,
+    permission: PERM_QUAN_LY_TAI_KHOAN,
+  },
   {
     label: "Cấu hình",
     icon: Settings,
@@ -66,7 +111,11 @@ const navItems: NavItem[] = [
     children: [
       { to: "/cau-hinh/khoa-vitri", label: "Khoa – vị trí", icon: Building2 },
       { to: "/cau-hinh/vi-tri", label: "Vị trí đánh giá", icon: MapPin },
-      { to: "/cau-hinh/dot-danh-gia", label: "Đợt đánh giá", icon: CalendarRange },
+      {
+        to: "/cau-hinh/dot-danh-gia",
+        label: "Đợt đánh giá",
+        icon: CalendarRange,
+      },
       { to: "/cau-hinh/tieu-chi", label: "Tiêu chí", icon: ListChecks },
     ],
   },
@@ -146,7 +195,9 @@ export default function Sidebar() {
                     <Icon size={19} strokeWidth={2} className="shrink-0" />
                     {open && (
                       <>
-                        <span className="flex-1 truncate text-left">{item.label}</span>
+                        <span className="flex-1 truncate text-left">
+                          {item.label}
+                        </span>
                         <ChevronDown
                           size={15}
                           className={`shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
@@ -170,7 +221,11 @@ export default function Sidebar() {
                                 }`
                               }
                             >
-                              <CIcon size={15} strokeWidth={2} className="shrink-0" />
+                              <CIcon
+                                size={15}
+                                strokeWidth={2}
+                                className="shrink-0"
+                              />
                               <span className="truncate">{c.label}</span>
                             </NavLink>
                           </li>

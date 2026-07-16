@@ -266,10 +266,22 @@ export default function CauHinhDotDanhGia() {
               />
             </Field>
             <Field label="Từ ngày">
-              <input type="date" className={inputCls} value={form.tu_ngay} onChange={(e) => setForm({ ...form, tu_ngay: e.target.value })} />
+              <input
+                type="date"
+                className={inputCls}
+                value={form.tu_ngay}
+                max={form.den_ngay || undefined}
+                onChange={(e) => setForm({ ...form, tu_ngay: e.target.value })}
+              />
             </Field>
             <Field label="Đến ngày">
-              <input type="date" className={inputCls} value={form.den_ngay} onChange={(e) => setForm({ ...form, den_ngay: e.target.value })} />
+              <input
+                type="date"
+                className={inputCls}
+                value={form.den_ngay}
+                min={form.tu_ngay || undefined}
+                onChange={(e) => setForm({ ...form, den_ngay: e.target.value })}
+              />
             </Field>
             <Field label="Mô tả" className="sm:col-span-2">
               <input className={inputCls} value={form.mo_ta} onChange={(e) => setForm({ ...form, mo_ta: e.target.value })} placeholder="Ghi chú về đợt đánh giá..." />

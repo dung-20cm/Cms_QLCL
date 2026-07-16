@@ -208,6 +208,31 @@ export async function fetchDanhGiaById(
   return res.data.data;
 }
 
+// Top 10 tiêu chí bị ✗ nhiều nhất, kèm breakdown theo khoa — tab Xu hướng
+export interface TopTieuChiLoi {
+  checklist_item_id: number
+  s_id: string
+  s_name: string
+  sub: string
+  tc: string
+  fail_count: number
+  rate_pct: number
+  by_khoa: { khoa: string; count: number }[]
+}
+
+export async function fetchTopTieuChiLoi(params?: {
+  tu_ngay?: string
+  den_ngay?: string
+  khoa_id?: number
+  vitri_type_id?: number
+}): Promise<{ data: TopTieuChiLoi[]; totalLuot: number }> {
+  const res = await apiClient.get<Envelope<{ data: TopTieuChiLoi[]; totalLuot: number }>>(
+    '/api/danh-gia/top-tieu-chi-loi',
+    { params },
+  )
+  return res.data.data
+}
+
 export async function createDanhGia(
   payload: CreateDanhGiaPayload,
 ): Promise<DanhGia> {
@@ -219,8 +244,11 @@ export async function createDanhGia(
 }
 
 // -- Khac phuc --
-export const fetchKhacPhucList = (params?: { trang_thai?: string }) =>
-  getList<KhacPhuc>("khac-phuc", params);
+export const fetchKhacPhucList = (params?: {
+  trang_thai?: string;
+  khoa_id?: number;
+  nguoi_phu_trach_id?: number;
+}) => getList<KhacPhuc>("khac-phuc", params);
 
 export async function createUpdateKhacPhuc(
   payload: Partial<KhacPhuc>,
@@ -230,6 +258,10 @@ export async function createUpdateKhacPhuc(
     payload,
   );
   return res.data.data;
+}
+
+export async function deleteKhacPhuc(id: number): Promise<void> {
+  await apiClient.post(`/api/khac-phuc/delete-khac-phuc/${id}`);
 }
 
 // -- Lich phan cong --

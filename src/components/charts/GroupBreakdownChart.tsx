@@ -21,7 +21,8 @@ export default function GroupBreakdownChart({ data = [0, 0, 0, 0, 0] }: GroupBre
       plotOptions: {
         bar: { borderRadius: 6, columnWidth: '45%', distributed: true },
       },
-      colors: ['#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7'],
+      // Màu chuẩn theo bảng màu 5S_Dashboard_BVTB_v4 (S1..S5)
+      colors: ['#D85A30', '#BA7517', '#1D9E75', '#185FA5', '#534AB7'],
       legend: { show: false },
       dataLabels: { enabled: false },
       grid: { borderColor: isDark ? '#1f2937' : '#f1f2f4' },

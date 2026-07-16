@@ -12,6 +12,7 @@ import {
   useCatalog,
 } from '../components/ui/PageShell'
 import SearchableSelect from '../components/ui/SearchableSelect'
+import Pagination, { usePagination } from '../components/ui/Pagination'
 import { fetchDanhGiaList } from '../features/qlcl/api'
 import type { DanhGia } from '../features/qlcl/types'
 import { toneBadgeClass, toneFromPct } from '../features/qlcl/types'
@@ -62,6 +63,17 @@ export default function TongHop() {
     }
     return [...list].sort(bySort[sort])
   }, [rows, fFrom, fTo, fKhoa, fVitri, fDot, sort])
+
+  const {
+    page,
+    setPage,
+    totalPages,
+    pageItems: pagedRows,
+    pageSize,
+    totalItems,
+  } = usePagination(filtered, {
+    resetKey: `${fFrom}|${fTo}|${fKhoa}|${fVitri}|${fDot}|${sort}`,
+  })
 
   const kpi = useMemo(() => {
     const n = filtered.length
@@ -209,9 +221,9 @@ export default function TongHop() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r, i) => (
+                {pagedRows.map((r, i) => (
                   <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/40">
-                    <td className="px-5 py-3 text-gray-400">{i + 1}</td>
+                    <td className="px-5 py-3 text-gray-400">{(page - 1) * pageSize + i + 1}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(r.ngay_danh_gia).toLocaleDateString('vi-VN')}</td>
                     <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-200">{r.khoa?.ten_khoa}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
@@ -219,7 +231,11 @@ export default function TongHop() {
                       {r.vitri_chi_tiet?.ma_vitri && <span className="text-gray-300"> · {r.vitri_chi_tiet.ma_vitri}</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{r.dot_danh_gia}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{r.nguoi_danh_gia?.username}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                      {[r.nguoi_danh_gia?.username, ...(r.dong_danh_gia?.map((u) => u.username) || [])]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{r.so_tieu_chi_dat}/{r.so_tieu_chi_tong}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -242,6 +258,13 @@ export default function TongHop() {
               </tbody>
             </table>
           </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onChange={setPage}
+            totalItems={totalItems}
+            pageSize={pageSize}
+          />
         </div>
       )}
     </div>

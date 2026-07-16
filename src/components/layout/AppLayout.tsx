@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import TodayLichBanner from './TodayLichBanner'
 import { useAppSelector } from '../../app/hooks'
 
 export default function AppLayout() {
@@ -13,6 +14,7 @@ export default function AppLayout() {
         className={`transition-all duration-200 ${open ? 'ml-64' : 'ml-[84px]'}`}
       >
         <Header />
+        <TodayLichBanner />
         <main className="p-4 sm:p-6">
           <Outlet />
         </main>
