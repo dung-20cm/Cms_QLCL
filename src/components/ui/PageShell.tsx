@@ -55,7 +55,7 @@ const accentText: Record<NonNullable<KpiCardProps['accent']>, string> = {
 export function KpiCard({ label, value, sub, accent = 'navy' }: KpiCardProps) {
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 before:absolute before:inset-y-0 before:left-0 before:w-1 dark:border-gray-800 dark:bg-gray-900 ${accentBar[accent]}`}
+      className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md before:absolute before:inset-y-0 before:left-0 before:w-1 dark:border-gray-800 dark:bg-gray-900 ${accentBar[accent]}`}
     >
       <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${accentText[accent]}`}>{value}</p>
@@ -114,13 +114,13 @@ export const inputCls =
   'h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-500/20'
 
 export const btnPrimary =
-  'inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white shadow-sm transition duration-150 hover:bg-brand-600 hover:shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100'
 
 export const btnSecondary =
-  'inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+  'inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 text-sm font-medium text-gray-600 transition duration-150 hover:bg-gray-50 active:scale-95 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
 
 export const btnDanger =
-  'inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3.5 text-sm font-medium text-red-600 transition hover:bg-red-100 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400'
+  'inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3.5 text-sm font-medium text-red-600 transition duration-150 hover:bg-red-100 active:scale-95 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400'
 
 // Modal đơn giản dùng chung
 export function Modal({
@@ -141,11 +141,11 @@ export function Modal({
   if (!open) return null
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900 ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
+        className={`animate-scale-in flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900 ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">

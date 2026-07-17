@@ -189,7 +189,9 @@ export default function TaiKhoan() {
   const assignableRoles = useMemo(
     () =>
       isScopedManager
-        ? roles.filter((r) => !ROLE_SLUGS_ONLY_ADMIN_CAN_ASSIGN.includes(r.slug))
+        ? roles.filter(
+            (r) => !ROLE_SLUGS_ONLY_ADMIN_CAN_ASSIGN.includes(r.slug),
+          )
         : roles,
     [roles, isScopedManager],
   );
@@ -283,6 +285,8 @@ export default function TaiKhoan() {
       setDeleteBusy(false);
     }
   }
+
+  console.log("rows", form);
 
   return (
     <div>
@@ -598,7 +602,8 @@ export default function TaiKhoan() {
               />
               {isScopedManager ? (
                 <p className="mt-1 text-[11px] text-gray-400">
-                  Trưởng khoa chỉ quản lý được tài khoản trong khoa/phòng của mình.
+                  Trưởng khoa chỉ quản lý được tài khoản trong khoa/phòng của
+                  mình.
                 </p>
               ) : (
                 fieldErrors.khoa_id && (

@@ -10,7 +10,6 @@ import {
   TrendingUp,
   Wrench,
   Printer,
-  BookOpen,
   Settings,
   Users,
   ChevronDown,
@@ -97,7 +96,6 @@ const navItems: NavItem[] = [
     icon: Printer,
     permission: PERM_XEM_TONG_HOP,
   },
-  { to: "/huong-dan", label: "Hướng dẫn", icon: BookOpen },
   {
     to: "/tai-khoan",
     label: "Tài khoản",
@@ -122,10 +120,10 @@ const navItems: NavItem[] = [
 ];
 
 const linkCls = (isActive: boolean, open: boolean) =>
-  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
     isActive
       ? "bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
-      : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+      : "text-gray-600 hover:translate-x-0.5 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
   } ${!open ? "justify-center" : ""}`;
 
 export default function Sidebar() {
@@ -206,7 +204,7 @@ export default function Sidebar() {
                     )}
                   </button>
                   {isExpanded && open && (
-                    <ul className="mt-1 space-y-0.5 border-l border-gray-100 pl-4 ml-5 dark:border-gray-800">
+                    <ul className="animate-slide-down mt-1 space-y-0.5 border-l border-gray-100 pl-4 ml-5 dark:border-gray-800">
                       {item.children.map((c) => {
                         const CIcon = c.icon;
                         return (
@@ -214,10 +212,10 @@ export default function Sidebar() {
                             <NavLink
                               to={c.to}
                               className={({ isActive }) =>
-                                `flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
+                                `flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
                                   isActive
                                     ? "bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
-                                    : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                                    : "text-gray-500 hover:translate-x-0.5 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                                 }`
                               }
                             >

@@ -37,6 +37,15 @@ interface ProfileApiResponse {
   data: ProfileResponseData
 }
 
+interface ChangePasswordPayload {
+  old_password: string
+  new_password: string
+}
+
+interface ChangePasswordApiResponse {
+  data: { token: string }
+}
+
 export const loginUser = createAsyncThunk<LoginResponseData, LoginPayload, { rejectValue: string }>(
   'auth/loginUser',
   async ({ username, password, remember }, { rejectWithValue }) => {
@@ -64,6 +73,21 @@ export const restoreSession = createAsyncThunk<ProfileResponseData, void, { reje
     } catch (err) {
       clearToken()
       return rejectWithValue(extractErrorMessage(err, 'Phiên đăng nhập đã hết hạn!'))
+    }
+  },
+)
+
+// Đổi mật khẩu tài khoản đang đăng nhập. BE cấp token mới sau khi đổi (xem
+// service/user.service.js -> changePassword) nên phải lưu lại token mới, nếu
+// không lần gọi API tiếp theo vẫn dùng token cũ (vẫn còn hợp lệ nhưng để nhất quán).
+export const changePassword = createAsyncThunk<void, ChangePasswordPayload, { rejectValue: string }>(
+  'auth/changePassword',
+  async (payload, { rejectWithValue }) => {
+    try {
+      const res = await apiClient.post<ChangePasswordApiResponse>('/change_password', { data: payload })
+      saveToken(res.data.data.token, isRemembered())
+    } catch (err) {
+      return rejectWithValue(extractErrorMessage(err, 'Đổi mật khẩu thất bại. Vui lòng thử lại!'))
     }
   },
 )

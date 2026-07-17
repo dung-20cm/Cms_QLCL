@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ImageIcon, Plus, Download, Printer, FileText } from 'lucide-react'
+import { ImageIcon, Plus, Download, Printer, FileText, RotateCcw } from 'lucide-react'
+import { ExcelJS, styleHeaderRow, styleDataRow, downloadWorkbook } from '../features/qlcl/excelExport'
 import {
   PageHeader,
   KpiCard,
@@ -51,6 +52,7 @@ export default function Zalo5S() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filterTuan, setFilterTuan] = useState('')
+  const [filterKhoa, setFilterKhoa] = useState<number | ''>('')
 
   // Modal ghi nhận
   const [modalOpen, setModalOpen] = useState(false)
@@ -93,6 +95,13 @@ export default function Zalo5S() {
     }
     return map
   }, [records, activeTuan])
+
+  // Danh sách khoa hiển thị trong bảng + xuất file — thu hẹp theo bộ lọc Khoa/Phòng
+  // (KPI tổng quan phía trên vẫn tính trên toàn viện, không phụ thuộc bộ lọc này)
+  const displayedKhoaList = useMemo(
+    () => (filterKhoa === '' ? khoaList : khoaList.filter((k) => k.id === filterKhoa)),
+    [khoaList, filterKhoa],
+  )
 
   const kpi = useMemo(() => {
     const daGui = [...weekMap.values()]
@@ -157,29 +166,59 @@ export default function Zalo5S() {
     }
   }
 
-  function exportCSV() {
-    const head = ['Khoa/Phòng', 'Nhóm', 'Trạng thái', 'Số ảnh', 'Vị trí', 'Chất lượng', 'Ghi chú']
-    const lines = khoaList.map((k) => {
-      const r = weekMap.get(k.id)
-      return [
-        k.ten_khoa,
-        k.nhom,
-        r ? 'Đã gửi' : 'Chưa gửi',
-        r?.so_luong_anh ?? 0,
-        r?.vi_tri?.map((v) => v.vitri_type?.ten_vitri).filter(Boolean).join('; ') || '',
-        r?.chat_luong || '',
-        r?.ghi_chu || '',
+  const [exportingExcel, setExportingExcel] = useState(false)
+
+  // Xuất file Excel (.xlsx) thật thay vì CSV thô — CSV mở lên Excel bị dồn cột,
+  // không set được độ rộng/tô màu nên nhìn rối; .xlsx cho phép định dạng cột,
+  // in đậm + tô màu tiêu đề, căn giữa, đóng băng dòng đầu để dễ đọc khi cuộn.
+  async function exportExcel() {
+    setExportingExcel(true)
+    try {
+      const wb = new ExcelJS.Workbook()
+      const ws = wb.addWorksheet(`Tuần ${activeTuan}`.slice(0, 31))
+
+      ws.columns = [
+        { header: 'STT', key: 'stt', width: 7 },
+        { header: 'Khoa / Phòng', key: 'khoa', width: 34 },
+        { header: 'Nhóm', key: 'nhom', width: 15 },
+        { header: 'Trạng thái', key: 'trangThai', width: 13 },
+        { header: 'Số ảnh', key: 'soAnh', width: 9 },
+        { header: 'Vị trí đã gửi', key: 'viTri', width: 42 },
+        { header: 'Chất lượng', key: 'chatLuong', width: 14 },
+        { header: 'Ghi chú', key: 'ghiChu', width: 32 },
       ]
-        .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-        .join(',')
-    })
-    const csv = '﻿' + [head.join(','), ...lines].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `zalo5s_tuan_${activeTuan}.csv`
-    a.click()
-    URL.revokeObjectURL(a.href)
+      styleHeaderRow(ws.getRow(1))
+
+      displayedKhoaList.forEach((k, idx) => {
+        const r = weekMap.get(k.id)
+        const row = ws.addRow({
+          stt: idx + 1,
+          khoa: k.ten_khoa,
+          nhom: k.nhom,
+          trangThai: r ? 'Đã gửi' : 'Chưa gửi',
+          soAnh: r?.so_luong_anh ?? 0,
+          viTri: r?.vi_tri?.map((v) => v.vitri_type?.ten_vitri).filter(Boolean).join('; ') || '',
+          chatLuong: r?.chat_luong || '',
+          ghiChu: r?.ghi_chu || '',
+        })
+        styleDataRow(row, idx, ['stt', 'trangThai', 'soAnh', 'chatLuong'])
+        row.getCell('trangThai').font = { bold: true, color: { argb: r ? 'FF15803D' : 'FFDC2626' } }
+        if (r?.chat_luong) {
+          const cl = r.chat_luong.toLowerCase()
+          const color = cl.includes('tốt') ? 'FF15803D' : cl.includes('trung') ? 'FFB45309' : 'FFDC2626'
+          row.getCell('chatLuong').font = { bold: true, color: { argb: color } }
+        }
+      })
+
+      ws.views = [{ state: 'frozen', ySplit: 1 }]
+      ws.autoFilter = { from: 'A1', to: 'H1' }
+
+      await downloadWorkbook(wb, `zalo5s_tuan_${activeTuan}.xlsx`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Xuất Excel thất bại')
+    } finally {
+      setExportingExcel(false)
+    }
   }
 
   return (
@@ -196,8 +235,8 @@ export default function Zalo5S() {
                 <option key={t} value={t}>Tuần {new Date(t).toLocaleDateString('vi-VN')}</option>
               ))}
             </select>
-            <button className={btnSecondary} onClick={exportCSV}>
-              <Download size={15} /> Xuất CSV
+            <button className={btnSecondary} onClick={exportExcel} disabled={exportingExcel}>
+              <Download size={15} /> {exportingExcel ? 'Đang xuất...' : 'Xuất Excel'}
             </button>
             <button
               className={btnSecondary}
@@ -230,13 +269,31 @@ export default function Zalo5S() {
         <KpiCard label="🏆 Chất lượng tốt" value={kpi.tot} accent="yellow" />
       </div>
 
+      {/* ── Bộ lọc ── */}
+      <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+        <Field label="Khoa / Phòng" className="min-w-[240px]">
+          <SearchableSelect
+            value={filterKhoa}
+            onChange={setFilterKhoa}
+            options={khoaList.map((k) => ({ value: k.id, label: k.ten_khoa }))}
+            placeholder="— Tất cả khoa/phòng —"
+          />
+        </Field>
+        {filterKhoa !== '' && (
+          <button className={btnSecondary} onClick={() => setFilterKhoa('')}>
+            <RotateCcw size={14} /> Xoá lọc
+          </button>
+        )}
+      </div>
+
       {loading ? (
         <LoadingRow />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
             <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-              Bảng theo dõi tuần {new Date(activeTuan).toLocaleDateString('vi-VN')} — toàn bộ {khoaList.length} khoa/phòng/TT
+              Bảng theo dõi tuần {new Date(activeTuan).toLocaleDateString('vi-VN')} —{' '}
+              {filterKhoa === '' ? `toàn bộ ${khoaList.length} khoa/phòng/TT` : `${displayedKhoaList.length} khoa/phòng phù hợp`}
             </h3>
           </div>
           <div className="max-h-[65vh] overflow-auto">
@@ -254,7 +311,14 @@ export default function Zalo5S() {
                 </tr>
               </thead>
               <tbody>
-                {khoaList.map((k, idx) => {
+                {displayedKhoaList.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-8 text-center text-sm text-gray-400">
+                      Không có khoa/phòng phù hợp với bộ lọc.
+                    </td>
+                  </tr>
+                )}
+                {displayedKhoaList.map((k, idx) => {
                   const r = weekMap.get(k.id)
                   return (
                     <tr key={k.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/40">

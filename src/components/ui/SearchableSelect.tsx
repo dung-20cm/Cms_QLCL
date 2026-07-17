@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import { inputCls } from './PageShell'
+import { normalizeVn } from './searchNormalize'
 
 export interface SearchableSelectOption<T extends string | number> {
   value: T
@@ -15,33 +16,6 @@ interface SearchableSelectProps<T extends string | number> {
   placeholder?: string
   className?: string
   disabled?: boolean
-}
-
-// Bỏ dấu tiếng Việt để so khớp không phân biệt có dấu/không dấu (gõ "phong kham"
-// vẫn lọc ra "Phòng khám bệnh"). Dùng bảng ánh xạ ký tự tường minh thay vì regex
-// unicode range để tránh rủi ro sai lệch ký tự khi lưu/đọc file.
-const VN_CHAR_MAP: Record<string, string> = {
-  a: 'aàáạảãâầấậẩẫăằắặẳẵ',
-  e: 'eèéẹẻẽêềếệểễ',
-  i: 'iìíịỉĩ',
-  o: 'oòóọỏõôồốộổỗơờớợởỡ',
-  u: 'uùúụủũưừứựửữ',
-  y: 'yỳýỵỷỹ',
-  d: 'dđ',
-}
-const CHAR_TO_BASE: Record<string, string> = {}
-for (const base of Object.keys(VN_CHAR_MAP)) {
-  for (const ch of VN_CHAR_MAP[base]) {
-    CHAR_TO_BASE[ch] = base
-  }
-}
-
-function normalize(s: string): string {
-  let out = ''
-  for (const ch of s.toLowerCase()) {
-    out += CHAR_TO_BASE[ch] ?? ch
-  }
-  return out.trim()
 }
 
 // Select có gõ để lọc (combobox) — thay cho <select> thường ở các danh sách dài
@@ -74,9 +48,9 @@ export default function SearchableSelect<T extends string | number>({
   }, [])
 
   const filtered = useMemo(() => {
-    const q = normalize(query)
+    const q = normalizeVn(query)
     if (!q) return options
-    return options.filter((o) => normalize(o.label).includes(q))
+    return options.filter((o) => normalizeVn(o.label).includes(q))
   }, [options, query])
 
   useEffect(() => {

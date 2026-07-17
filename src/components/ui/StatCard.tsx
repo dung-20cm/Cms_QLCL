@@ -12,7 +12,7 @@ export default function StatCard({ label, value, change, icon: Icon }: StatCardP
   const positive = change >= 0
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
       <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-50 dark:bg-gray-800">
         <Icon size={20} className="text-brand-500 dark:text-brand-400" />
       </div>
