@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { ClipboardCheck, Percent, Building2, Wrench } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
 import ChartCard from "../components/ui/ChartCard";
+import CountUp from "../components/ui/CountUp";
 import TrendChart from "../components/charts/TrendChart";
 import GroupBreakdownChart from "../components/charts/GroupBreakdownChart";
 import TargetChart from "../components/charts/TargetChart";
@@ -9,13 +10,11 @@ import {
   LoadingRow,
   ErrorBanner,
   EmptyState,
+  useDanhGia,
+  useKhacPhuc,
+  useTodayLich,
 } from "../components/ui/PageShell";
-import {
-  fetchDanhGiaList,
-  fetchKhacPhucList,
-  fetchLichPhanCongList,
-} from "../features/qlcl/api";
-import type { DanhGia, KhacPhuc, LichPhanCong } from "../features/qlcl/types";
+import type { LichPhanCong } from "../features/qlcl/types";
 import { toneBadgeClass, toneFromPct } from "../features/qlcl/types";
 
 const TARGET_PCT = 90;
@@ -35,41 +34,25 @@ const fmt = (d: Date) => {
 };
 
 export default function Dashboard() {
-  const [rows, setRows] = useState<DanhGia[]>([]);
-  const [khacPhuc, setKhacPhuc] = useState<KhacPhuc[]>([]);
-  const [lichList, setLichList] = useState<LichPhanCong[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([
-      fetchDanhGiaList(),
-      fetchKhacPhucList().catch(() => ({ rows: [] as KhacPhuc[], total: 0 })),
-      fetchLichPhanCongList().catch(() => ({
-        rows: [] as LichPhanCong[],
-        total: 0,
-      })),
-    ])
-      .then(([dg, kp, lich]) => {
-        if (cancelled) return;
-        setRows(dg.rows.filter((r) => r.active !== 0));
-        setKhacPhuc(kp.rows.filter((r) => r.active !== 0));
-        setLichList(lich.rows.filter((l) => l.active !== 0));
-      })
-      .catch(
-        (err) =>
-          !cancelled &&
-          setError(
-            err instanceof Error ? err.message : "Không tải được dữ liệu",
-          ),
-      )
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Dữ liệu lấy từ cache Redux dùng chung (xem danhGiaSlice/khacPhucSlice/
+  // todayLichSlice) -- không tự gọi API riêng nữa. Nếu trang khác (Tổng hợp,
+  // Xu hướng, Báo cáo, banner "Lịch hôm nay") đã tải trước đó thì dùng lại
+  // ngay, không gọi lại API; nếu chưa, hook tự fetch và trang này hiện
+  // "Đang tải..." trong lúc chờ.
+  const danhGia = useDanhGia();
+  const khacPhucState = useKhacPhuc();
+  const todayLichState = useTodayLich();
+  const rows = danhGia.rows;
+  const khacPhuc = khacPhucState.rows;
+  const lichList = todayLichState.rows;
+  const loading =
+    danhGia.status === "idle" ||
+    danhGia.status === "loading" ||
+    khacPhucState.status === "idle" ||
+    khacPhucState.status === "loading" ||
+    todayLichState.status === "idle" ||
+    todayLichState.status === "loading";
+  const error = danhGia.error || khacPhucState.error || todayLichState.error;
 
   const sorted = useMemo(
     () =>
@@ -245,25 +228,29 @@ export default function Dashboard() {
   const statCards = [
     {
       label: "Tổng lượt đánh giá",
-      value: String(stats.n),
+      value: <CountUp value={stats.n} />,
       change: stats.dLuot,
       icon: ClipboardCheck,
     },
     {
       label: "Tỷ lệ đạt trung bình",
-      value: `${stats.avg}%`,
+      value: <CountUp value={stats.avg} suffix="%" />,
       change: stats.dPct,
       icon: Percent,
     },
     {
       label: "Khoa/Phòng đạt Xuất sắc",
-      value: `${stats.excellent} / ${stats.totalKhoa}`,
+      value: (
+        <>
+          <CountUp value={stats.excellent} /> / <CountUp value={stats.totalKhoa} />
+        </>
+      ),
       change: 0,
       icon: Building2,
     },
     {
       label: "Hành động khắc phục đang mở",
-      value: String(stats.openKP),
+      value: <CountUp value={stats.openKP} />,
       change: 0,
       icon: Wrench,
     },
@@ -290,7 +277,7 @@ export default function Dashboard() {
         <>
           {/* ── KPI hôm nay ── */}
           <div
-            className="rounded-2xl p-5 text-white"
+            className="animate-rise-in rounded-2xl p-5 text-white"
             style={{
               background: "linear-gradient(135deg,#1B3A5C,#185FA5)",
             }}
@@ -300,24 +287,26 @@ export default function Dashboard() {
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="text-center">
-                <p className="text-3xl font-extrabold">{todayStats.luot}</p>
+                <p className="text-3xl font-extrabold">
+                  <CountUp value={todayStats.luot} />
+                </p>
                 <p className="text-xs opacity-80">Lượt đánh giá</p>
               </div>
               <div className="text-center">
                 <p className="text-3xl font-extrabold text-emerald-300">
-                  {todayStats.dat}
+                  <CountUp value={todayStats.dat} />
                 </p>
                 <p className="text-xs opacity-80">Đạt / Đạt tốt</p>
               </div>
               <div className="text-center">
                 <p className="text-3xl font-extrabold text-red-300">
-                  {todayStats.chuaDat}
+                  <CountUp value={todayStats.chuaDat} />
                 </p>
                 <p className="text-xs opacity-80">Chưa đạt</p>
               </div>
               <div className="text-center">
                 <p className="text-3xl font-extrabold">
-                  {todayStats.luot ? `${todayStats.avg}%` : "–"}
+                  {todayStats.luot ? <CountUp value={todayStats.avg} suffix="%" /> : "–"}
                 </p>
                 <p className="text-xs opacity-80">Điểm TB hôm nay</p>
               </div>
@@ -325,8 +314,8 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {statCards.map((s) => (
-              <StatCard key={s.label} {...s} />
+            {statCards.map((s, i) => (
+              <StatCard key={s.label} {...s} delay={i * 70} />
             ))}
           </div>
 
@@ -345,7 +334,7 @@ export default function Dashboard() {
             <ChartCard title="Mục tiêu tỷ lệ đạt" subtitle="Toàn viện — luỹ kế">
               <TargetChart value={stats.avg} />
               <p className="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
-                Mục tiêu {TARGET_PCT}% · Hiện tại {stats.avg}%
+                Mục tiêu {TARGET_PCT}% · Hiện tại <CountUp value={stats.avg} suffix="%" />
               </p>
             </ChartCard>
           </div>

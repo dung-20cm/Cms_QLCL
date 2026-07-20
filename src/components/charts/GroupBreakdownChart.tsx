@@ -16,7 +16,19 @@ export default function GroupBreakdownChart({ data = [0, 0, 0, 0, 0] }: GroupBre
 
   const options: ApexOptions = useMemo(
     () => ({
-      chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit', background: 'transparent' },
+      chart: {
+        type: 'bar',
+        toolbar: { show: false },
+        fontFamily: 'inherit',
+        background: 'transparent',
+        animations: {
+          enabled: true,
+          easing: 'easeinout',
+          speed: 700,
+          animateGradually: { enabled: true, delay: 100 },
+          dynamicAnimation: { enabled: true, speed: 350 },
+        },
+      },
       theme: { mode },
       plotOptions: {
         bar: { borderRadius: 6, columnWidth: '45%', distributed: true },

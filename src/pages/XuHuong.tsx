@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Chart from 'react-apexcharts'
 import type { ApexOptions } from 'apexcharts'
 import { TrendingUp, RotateCcw, X } from 'lucide-react'
-import { useAppSelector } from '../app/hooks'
+import { useAppDispatch, useAppSelector } from '../app/hooks'
 import {
   PageHeader,
   Field,
@@ -13,13 +13,15 @@ import {
   ErrorBanner,
   EmptyState,
   useCatalog,
+  useDanhGia,
 } from '../components/ui/PageShell'
 import SearchableSelect from '../components/ui/SearchableSelect'
 import ChartCard from '../components/ui/ChartCard'
-import { fetchDanhGiaList, fetchTopTieuChiLoi } from '../features/qlcl/api'
+import CountUp from '../components/ui/CountUp'
+import { fetchTopTieuChiLoi } from '../features/qlcl/api'
 import type { TopTieuChiLoi } from '../features/qlcl/api'
-import type { DanhGia } from '../features/qlcl/types'
 import { toneBadgeClass, toneFromPct } from '../features/qlcl/types'
+import { loadDanhGia } from '../features/qlcl/danhGiaSlice'
 
 // Thứ tự + tên/màu cố định 5 nhóm 5S — khớp bảng màu file mẫu 5S_Dashboard_BVTB_v4
 const S_META: Record<string, { name: string; color: string }> = {
@@ -35,12 +37,13 @@ type SortMode = 'newest' | 'oldest' | 'rank_desc' | 'rank_asc' | 'khoa'
 
 export default function XuHuong() {
   const { khoaList, vitriTypes } = useCatalog()
+  const dispatch = useAppDispatch()
   const mode = useAppSelector((s) => s.theme.mode)
   const isDark = mode === 'dark'
 
-  const [rows, setRows] = useState<DanhGia[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // Dữ liệu lấy từ cache Redux dùng chung (danhGiaSlice) -- không tự gọi API riêng nữa.
+  const { rows, status: danhGiaStatus, error } = useDanhGia()
+  const loading = danhGiaStatus === 'idle' || danhGiaStatus === 'loading'
 
   const [fFrom, setFFrom] = useState('')
   const [fTo, setFTo] = useState('')
@@ -52,17 +55,6 @@ export default function XuHuong() {
   const [top10, setTop10] = useState<TopTieuChiLoi[]>([])
   const [top10Loading, setTop10Loading] = useState(false)
   const [drillItem, setDrillItem] = useState<TopTieuChiLoi | null>(null)
-
-  const load = useCallback(() => {
-    setLoading(true)
-    setError(null)
-    fetchDanhGiaList()
-      .then((res) => setRows(res.rows.filter((r) => r.active !== 0)))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Không tải được dữ liệu'))
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(load, [load])
 
   // Top 10 tiêu chí lỗi — tính riêng ở BE theo cùng bộ lọc (from/to/khoa/vitri)
   useEffect(() => {
@@ -118,7 +110,19 @@ export default function XuHuong() {
 
   const lineOptions: ApexOptions = useMemo(
     () => ({
-      chart: { type: 'area', toolbar: { show: false }, fontFamily: 'inherit', background: 'transparent' },
+      chart: {
+        type: 'area',
+        toolbar: { show: false },
+        fontFamily: 'inherit',
+        background: 'transparent',
+        animations: {
+          enabled: true,
+          easing: 'easeinout',
+          speed: 700,
+          animateGradually: { enabled: true, delay: 120 },
+          dynamicAnimation: { enabled: true, speed: 350 },
+        },
+      },
       theme: { mode },
       colors: ['#465fff'],
       dataLabels: { enabled: false },
@@ -169,7 +173,19 @@ export default function XuHuong() {
 
   const barOptions: ApexOptions = useMemo(
     () => ({
-      chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit', background: 'transparent' },
+      chart: {
+        type: 'bar',
+        toolbar: { show: false },
+        fontFamily: 'inherit',
+        background: 'transparent',
+        animations: {
+          enabled: true,
+          easing: 'easeinout',
+          speed: 700,
+          animateGradually: { enabled: true, delay: 80 },
+          dynamicAnimation: { enabled: true, speed: 350 },
+        },
+      },
       theme: { mode },
       plotOptions: {
         bar: {
@@ -259,7 +275,7 @@ export default function XuHuong() {
         title="Xu hướng theo thời gian"
         subtitle="Theo dõi thay đổi điểm 5S qua các đợt — phát hiện sớm xu hướng suy giảm"
       />
-      {error && <ErrorBanner message={error} onRetry={load} />}
+      {error && <ErrorBanner message={error} onRetry={() => dispatch(loadDanhGia())} />}
 
       {/* ── Bộ lọc ── */}
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
@@ -296,14 +312,20 @@ export default function XuHuong() {
           {/* ── Tỷ lệ đạt trung bình theo từng nhóm 5S ── */}
           <ChartCard title="Tỷ lệ đạt trung bình theo từng nhóm 5S" subtitle="Tính trên toàn bộ lượt đang lọc">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              {S_IDS.map((id) => {
+              {S_IDS.map((id, i) => {
                 const meta = S_META[id]
                 const pct = sAvg[id] ?? 0
                 const color = pct >= 80 ? '#1D9E75' : pct >= 60 ? meta.color : '#E24B4A'
                 return (
-                  <div key={id} className="rounded-xl border border-gray-100 p-3 text-center dark:border-gray-800">
+                  <div
+                    key={id}
+                    className="animate-rise-in rounded-xl border border-gray-100 p-3 text-center dark:border-gray-800"
+                    style={{ animationDelay: `${i * 70}ms` }}
+                  >
                     <p className="text-xs font-bold" style={{ color: meta.color }}>{id}</p>
-                    <p className="mt-1 text-2xl font-bold" style={{ color }}>{pct}%</p>
+                    <p className="mt-1 text-2xl font-bold" style={{ color }}>
+                      <CountUp value={pct} suffix="%" />
+                    </p>
                     <p className="mt-0.5 text-[11px] text-gray-400">{meta.name}</p>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />

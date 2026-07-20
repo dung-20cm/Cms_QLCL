@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Printer, FileDown } from 'lucide-react'
 import {
   PageHeader,
@@ -11,9 +11,13 @@ import {
   ErrorBanner,
   EmptyState,
   useCatalog,
+  useDanhGia,
+  useKhacPhuc,
 } from '../components/ui/PageShell'
 import SearchableSelect from '../components/ui/SearchableSelect'
-import { fetchDanhGiaList, fetchKhacPhucList } from '../features/qlcl/api'
+import { useAppDispatch } from '../app/hooks'
+import { loadDanhGia } from '../features/qlcl/danhGiaSlice'
+import { loadKhacPhuc } from '../features/qlcl/khacPhucSlice'
 import type { DanhGia, KhacPhuc } from '../features/qlcl/types'
 
 type RptType = 'luot' | 'thang' | 'donvi'
@@ -120,10 +124,19 @@ ${REPORT_CSS}
 
 export default function BaoCao() {
   const { khoaList } = useCatalog()
-  const [rows, setRows] = useState<DanhGia[]>([])
-  const [kpRows, setKpRows] = useState<KhacPhuc[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const dispatch = useAppDispatch()
+  // Dữ liệu lấy từ cache Redux dùng chung (danhGiaSlice/khacPhucSlice) --
+  // không tự gọi API riêng nữa.
+  const danhGia = useDanhGia()
+  const khacPhuc = useKhacPhuc()
+  const rows = danhGia.rows
+  const kpRows = khacPhuc.rows
+  const loading =
+    danhGia.status === 'idle' ||
+    danhGia.status === 'loading' ||
+    khacPhuc.status === 'idle' ||
+    khacPhuc.status === 'loading'
+  const error = danhGia.error || khacPhuc.error
   const printAreaRef = useRef<HTMLDivElement>(null)
 
   const [rptType, setRptType] = useState<RptType>('luot')
@@ -134,20 +147,6 @@ export default function BaoCao() {
   const [dvKhoa, setDvKhoa] = useState('')
   const [dvFrom, setDvFrom] = useState('')
   const [dvTo, setDvTo] = useState('')
-
-  const load = useCallback(() => {
-    setLoading(true)
-    setError(null)
-    Promise.all([fetchDanhGiaList(), fetchKhacPhucList().catch(() => ({ rows: [], total: 0 }))])
-      .then(([dg, kp]) => {
-        setRows(dg.rows.filter((r) => r.active !== 0))
-        setKpRows(kp.rows)
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Không tải được dữ liệu'))
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(load, [load])
 
   // KPI hôm nay
   const today = new Date().toISOString().slice(0, 10)
@@ -234,7 +233,15 @@ export default function BaoCao() {
             )
           }
         />
-        {error && <ErrorBanner message={error} onRetry={load} />}
+        {error && (
+          <ErrorBanner
+            message={error}
+            onRetry={() => {
+              dispatch(loadDanhGia())
+              dispatch(loadKhacPhuc())
+            }}
+          />
+        )}
 
         <div className="mb-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
           <KpiCard label="Hôm nay" value={kpiToday.today} sub="lượt đánh giá" accent="navy" />

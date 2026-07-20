@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Table2, Download, RotateCcw } from "lucide-react";
 import {
   ExcelJS,
@@ -16,10 +16,13 @@ import {
   ErrorBanner,
   EmptyState,
   useCatalog,
+  useDanhGia,
 } from "../components/ui/PageShell";
 import SearchableSelect from "../components/ui/SearchableSelect";
 import Pagination, { usePagination } from "../components/ui/Pagination";
-import { fetchDanhGiaList } from "../features/qlcl/api";
+import CountUp from "../components/ui/CountUp";
+import { useAppDispatch } from "../app/hooks";
+import { loadDanhGia } from "../features/qlcl/danhGiaSlice";
 import type { DanhGia } from "../features/qlcl/types";
 import { toneBadgeClass, toneFromPct } from "../features/qlcl/types";
 
@@ -27,9 +30,11 @@ type SortKey = "newest" | "oldest" | "rank_desc" | "rank_asc" | "khoa";
 
 export default function TongHop() {
   const { khoaList, vitriTypes } = useCatalog();
-  const [rows, setRows] = useState<DanhGia[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  // Dữ liệu lấy từ cache Redux dùng chung (danhGiaSlice) -- không tự gọi API
+  // riêng nữa, tránh gọi lại nếu trang khác đã tải sẵn cùng dữ liệu này.
+  const { rows, status, error } = useDanhGia();
+  const loading = status === "idle" || status === "loading";
 
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
@@ -37,19 +42,6 @@ export default function TongHop() {
   const [fVitri, setFVitri] = useState("");
   const [fDot, setFDot] = useState("");
   const [sort, setSort] = useState<SortKey>("newest");
-
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    fetchDanhGiaList()
-      .then((res) => setRows(res.rows.filter((r) => r.active !== 0)))
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Không tải được dữ liệu"),
-      )
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(load, [load]);
 
   const dotOptions = useMemo(
     () => [...new Set(rows.map((r) => r.dot_danh_gia))].sort(),
@@ -91,7 +83,7 @@ export default function TongHop() {
 
   const kpi = useMemo(() => {
     const n = filtered.length;
-    if (!n) return { n: 0, okPct: "–", avg: "–", best: "–", bestSub: "" };
+    if (!n) return { n: 0, hasData: false, okPct: 0, avg: 0, best: "–", bestAvg: 0 };
     const ok = filtered.filter((r) => r.pct >= 85).length;
     const avg = Math.round(filtered.reduce((s, r) => s + r.pct, 0) / n);
     const byKhoa = new Map<string, { sum: number; n: number }>();
@@ -113,14 +105,16 @@ export default function TongHop() {
     }
     return {
       n,
-      okPct: `${Math.round((ok / n) * 100)}%`,
-      avg: `${avg}%`,
+      hasData: true,
+      okPct: Math.round((ok / n) * 100),
+      avg,
       best,
-      bestSub: `TB ${Math.round(bestAvg)}%`,
+      bestAvg: Math.round(bestAvg),
     };
   }, [filtered]);
 
   const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // Xuất file Excel (.xlsx) thật (thay CSV thô trước đây) — header navy đậm,
   // viền đủ 4 cạnh, tô xen kẽ dòng, đồng bộ phong cách với các trang khác.
@@ -177,7 +171,7 @@ export default function TongHop() {
         `tong_hop_5s_${new Date().toISOString().slice(0, 10)}.xlsx`,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Xuất Excel thất bại");
+      setExportError(err instanceof Error ? err.message : "Xuất Excel thất bại");
     } finally {
       setExportingExcel(false);
     }
@@ -208,7 +202,8 @@ export default function TongHop() {
           </button>
         }
       />
-      {error && <ErrorBanner message={error} onRetry={load} />}
+      {error && <ErrorBanner message={error} onRetry={() => dispatch(loadDanhGia())} />}
+      {exportError && <ErrorBanner message={exportError} />}
 
       {/* ── Bộ lọc ── */}
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
@@ -289,22 +284,30 @@ export default function TongHop() {
       <div className="mb-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
         <KpiCard
           label="Tổng lượt đánh giá"
-          value={kpi.n}
+          value={<CountUp value={kpi.n} />}
           sub="lượt"
           accent="navy"
+          delay={0}
         />
         <KpiCard
           label="Đạt tốt (≥85%)"
-          value={kpi.okPct}
+          value={kpi.hasData ? <CountUp value={kpi.okPct} suffix="%" /> : "–"}
           sub="tỷ lệ"
           accent="green"
+          delay={70}
         />
-        <KpiCard label="Tỷ lệ đạt trung bình" value={kpi.avg} accent="blue" />
+        <KpiCard
+          label="Tỷ lệ đạt trung bình"
+          value={kpi.hasData ? <CountUp value={kpi.avg} suffix="%" /> : "–"}
+          accent="blue"
+          delay={140}
+        />
         <KpiCard
           label="Đơn vị tốt nhất"
           value={<span className="text-base">{kpi.best}</span>}
-          sub={kpi.bestSub}
+          sub={kpi.hasData ? `TB ${kpi.bestAvg}%` : ""}
           accent="yellow"
+          delay={210}
         />
       </div>
 

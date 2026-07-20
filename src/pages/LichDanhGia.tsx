@@ -32,9 +32,10 @@ import {
 } from "../features/qlcl/api";
 import type { LichPhanCong, DanhGia, DotDanhGia } from "../features/qlcl/types";
 import { useKhoaViTri } from "../features/qlcl/useKhoaViTri";
-import { useAppSelector } from "../app/hooks";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { useHasPermission } from "../features/auth/usePermission";
 import { PERMISSION } from "../features/auth/permissions";
+import { invalidateTodayLich } from "../features/qlcl/todayLichSlice";
 
 const THU_LABEL = [
   "",
@@ -46,6 +47,10 @@ const THU_LABEL = [
   "Thứ 7",
   "CN",
 ];
+
+// Vị trí tổng hợp (bộ tiêu chí dùng chung) — ưu tiên chọn mặc định khi tạo
+// lịch mới, xem trang Cấu hình > Tiêu chí.
+const TAT_CA_VI_TRI_LABEL = "Tất cả vị trí";
 
 function startOfWeek(d: Date): Date {
   const x = new Date(d);
@@ -207,8 +212,9 @@ function boDauVN(str: string): string {
 }
 
 export default function LichDanhGia() {
-  const { khoaList, users } = useCatalog();
+  const { khoaList, users, vitriTypes } = useCatalog();
   const currentUser = useAppSelector((s) => s.auth.user);
+  const dispatch = useAppDispatch();
   // Được thêm mới / sửa / xoá lịch (chỉ Admin, Trưởng khoa) — Phòng QLCL/Nhân viên chỉ xem
   const canManage = useHasPermission(PERMISSION.PHAN_CONG_DANH_GIA);
   // Admin thấy toàn bộ cán bộ; các role khác chỉ thấy cán bộ cùng khoa/phòng của mình
@@ -236,6 +242,10 @@ export default function LichDanhGia() {
   // chặn/ẩn ở 1 số môi trường, và không đồng bộ giao diện với phần còn lại của app)
   const [confirmDeleteGroup, setConfirmDeleteGroup] =
     useState<LichGroup | null>(null);
+  // Mỗi ngày trong lưới tuần chỉ hiện tối đa 10 buổi lịch -- bấm "Xem thêm" mở
+  // modal liệt kê ĐẦY ĐỦ lịch của đúng ngày đó (tránh 1 ngày quá tải hiển thị).
+  const DAY_VISIBLE_LIMIT = 10;
+  const [dayModalDate, setDayModalDate] = useState<Date | null>(null);
   const [deletingGroup, setDeletingGroup] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -369,11 +379,22 @@ export default function LichDanhGia() {
     mNguoi,
   ]);
 
+  // Chỉ tải lịch trong khoảng ngày THỰC SỰ cần dùng trên trang, thay vì toàn bộ
+  // bảng lich_phan_cong -- tránh tải nặng khi hệ thống có nhiều người dùng cùng
+  // lúc. Khoảng cần tải = HỢP của (tuần lưới đang xem) và (khoảng "Trưởng phòng
+  // theo dõi tuân thủ lịch" đang chọn: tuần thực tế hoặc 60 ngày gần đây).
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
+    const now = new Date();
+    const weekEndRaw = addDays(weekStart, 6);
+    const mon = startOfWeek(now);
+    const ttFrom = ttRange === "week" ? mon : addDays(now, -60);
+    const ttTo = ttRange === "week" ? addDays(mon, 6) : now;
+    const rangeFrom = weekStart.getTime() <= ttFrom.getTime() ? weekStart : ttFrom;
+    const rangeTo = weekEndRaw.getTime() >= ttTo.getTime() ? weekEndRaw : ttTo;
     Promise.all([
-      fetchLichPhanCongList(),
+      fetchLichPhanCongList({ tu_ngay: fmt(rangeFrom), den_ngay: fmt(rangeTo) }),
       fetchDanhGiaList().catch(() => ({ rows: [] as DanhGia[], total: 0 })),
       // Chỉ lấy đợt "đang mở" để chọn khi tạo lịch mới (giống luồng chọn đợt ở Bảng kiểm)
       fetchDotDanhGiaList({ trang_thai: "dang-mo" }).catch(() => ({
@@ -390,7 +411,7 @@ export default function LichDanhGia() {
         setError(err instanceof Error ? err.message : "Không tải được lịch"),
       )
       .finally(() => setLoading(false));
-  }, []);
+  }, [weekStart, ttRange]);
 
   useEffect(load, [load]);
 
@@ -551,8 +572,14 @@ export default function LichDanhGia() {
     setMEditGroup(null);
     setMDotDanhGiaId(dotDanhGiaList[0]?.id ?? "");
     setMNgay(fmt(new Date()));
-    setMKhoa("");
-    setMVitri("");
+    // Trưởng khoa/phòng (không phải Admin) chỉ được lập lịch cho ĐÚNG khoa/
+    // phòng của mình — khoá sẵn, không cho đổi (backend cũng chặn nếu cố gửi
+    // khoa khác). Admin mới được tự do chọn khoa cần lập lịch.
+    setMKhoa(!isAdmin && currentUser?.khoa_id != null ? currentUser.khoa_id : "");
+    // Mặc định vị trí "Tất cả vị trí" (bộ tiêu chí tổng hợp) khi tạo lịch mới —
+    // vẫn chọn được vị trí khác bất kỳ lúc nào qua select bên dưới.
+    const tatCa = vitriTypes.find((v) => v.ten_vitri === TAT_CA_VI_TRI_LABEL);
+    setMVitri(tatCa?.id ?? "");
     setMNguoi([]);
     setMNguoiSearch("");
     setMGhiChu("");
@@ -639,12 +666,84 @@ export default function LichDanhGia() {
         }
       }
       setModalOpen(false);
+      // Lịch vừa lưu có thể rơi vào đúng hôm nay -- đánh dấu cache "Lịch hôm
+      // nay" dùng chung (banner + trang Thống kê) là cũ để tự làm mới.
+      dispatch(invalidateTodayLich());
       load();
     } catch (err) {
       setModalError(err instanceof Error ? err.message : "Lưu lịch thất bại");
     } finally {
       setSavingLich(false);
     }
+  }
+
+  // Thẻ hiển thị 1 buổi lịch — dùng chung cho lưới tuần VÀ modal "xem thêm"
+  // (đủ lịch của 1 ngày) để không lặp code.
+  function renderLichCard(g: LichGroup, d: Date) {
+    const dStr = fmt(d);
+    const done = isDone(g.items[0], dStr);
+    const isPastOrToday = dStr <= fmt(today);
+    const names = g.items.map(tenNguoi).filter(Boolean).join(" · ");
+    return (
+      <div
+        key={g.key}
+        className={`rounded-lg border-l-[3px] border px-2 py-1.5 text-[11px] leading-tight shadow-sm ${
+          done
+            ? "border-l-emerald-500 border-emerald-100 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+            : isPastOrToday
+              ? "border-l-red-500 border-red-100 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10"
+              : "border-l-sky-500 border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+        }`}
+      >
+        <p className="font-semibold text-gray-700 dark:text-gray-200">
+          {done ? "✅" : isPastOrToday ? "❌" : "⏳"} {g.khoa?.ten_khoa}
+        </p>
+        {g.vitri_type?.ten_vitri && (
+          <p className="text-gray-400">{g.vitri_type.ten_vitri}</p>
+        )}
+        <p className="flex items-center gap-1 text-gray-400">
+          <Users size={11} /> {names}
+        </p>
+        <div className="mt-0.5 flex items-center justify-between gap-1">
+          <span
+            className={`inline-block rounded px-1 text-[10px] font-medium ${
+              g.loai_lich === "dinh_ky"
+                ? "bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400"
+                : g.loai_lich === "dot_xuat"
+                  ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                  : "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+            }`}
+          >
+            {g.loai_lich === "dinh_ky"
+              ? "Định kỳ"
+              : g.loai_lich === "dot_xuat"
+                ? "Đột xuất"
+                : "Một lần"}
+          </span>
+          {canManage && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => openEditModal(g)}
+                className="text-gray-300 hover:text-brand-500"
+                title="Sửa"
+              >
+                <Pencil size={12} />
+              </button>
+              <button
+                onClick={() => {
+                  setDeleteError(null);
+                  setConfirmDeleteGroup(g);
+                }}
+                className="text-gray-300 hover:text-red-500"
+                title="Xoá"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   // Xoá cả nhóm (mọi người được phân công trong cùng 1 buổi lịch) — gọi sau khi
@@ -658,6 +757,7 @@ export default function LichDanhGia() {
       );
       const ids = new Set(g.items.map((it) => it.id));
       setLichList((prev) => prev.filter((x) => !ids.has(x.id)));
+      dispatch(invalidateTodayLich());
       setConfirmDeleteGroup(null);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Xoá thất bại");
@@ -773,78 +873,25 @@ export default function LichDanhGia() {
                           —
                         </p>
                       )}
-                      {groupLich(dayLich).map((g) => {
-                        const dStr = fmt(d);
-                        const done = isDone(g.items[0], dStr);
-                        const isPastOrToday = dStr <= fmt(today);
-                        const names = g.items
-                          .map(tenNguoi)
-                          .filter(Boolean)
-                          .join(" · ");
+                      {(() => {
+                        const dayGroups = groupLich(dayLich);
+                        const visible = dayGroups.slice(0, DAY_VISIBLE_LIMIT);
+                        const extra = dayGroups.length - visible.length;
                         return (
-                          <div
-                            key={g.key}
-                            className={`rounded-lg border-l-[3px] border px-2 py-1.5 text-[11px] leading-tight shadow-sm ${
-                              done
-                                ? "border-l-emerald-500 border-emerald-100 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
-                                : isPastOrToday
-                                  ? "border-l-red-500 border-red-100 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10"
-                                  : "border-l-sky-500 border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
-                            }`}
-                          >
-                            <p className="font-semibold text-gray-700 dark:text-gray-200">
-                              {done ? "✅" : isPastOrToday ? "❌" : "⏳"}{" "}
-                              {g.khoa?.ten_khoa}
-                            </p>
-                            {g.vitri_type?.ten_vitri && (
-                              <p className="text-gray-400">
-                                {g.vitri_type.ten_vitri}
-                              </p>
-                            )}
-                            <p className="flex items-center gap-1 text-gray-400">
-                              <Users size={11} /> {names}
-                            </p>
-                            <div className="mt-0.5 flex items-center justify-between gap-1">
-                              <span
-                                className={`inline-block rounded px-1 text-[10px] font-medium ${
-                                  g.loai_lich === "dinh_ky"
-                                    ? "bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400"
-                                    : g.loai_lich === "dot_xuat"
-                                      ? "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                                      : "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
-                                }`}
+                          <>
+                            {visible.map((g) => renderLichCard(g, d))}
+                            {extra > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setDayModalDate(d)}
+                                className="w-full rounded-lg border border-dashed border-gray-200 px-2 py-1.5 text-center text-[11px] font-medium text-brand-600 transition hover:bg-brand-50 dark:border-gray-700 dark:text-brand-400 dark:hover:bg-brand-500/10"
                               >
-                                {g.loai_lich === "dinh_ky"
-                                  ? "Định kỳ"
-                                  : g.loai_lich === "dot_xuat"
-                                    ? "Đột xuất"
-                                    : "Một lần"}
-                              </span>
-                              {canManage && (
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    onClick={() => openEditModal(g)}
-                                    className="text-gray-300 hover:text-brand-500"
-                                    title="Sửa"
-                                  >
-                                    <Pencil size={12} />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setDeleteError(null);
-                                      setConfirmDeleteGroup(g);
-                                    }}
-                                    className="text-gray-300 hover:text-red-500"
-                                    title="Xoá"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                                Xem thêm (+{extra})
+                              </button>
+                            )}
+                          </>
                         );
-                      })}
+                      })()}
                     </div>
                   </div>
                 );
@@ -1329,7 +1376,13 @@ export default function LichDanhGia() {
               </div>
             </Field>
           )}
-          <Field label="Khoa / Phòng / TT">
+          <Field
+            label={
+              isAdmin
+                ? "Khoa / Phòng / TT"
+                : "Khoa / Phòng / TT (khoa của bạn — không đổi được)"
+            }
+          >
             <SearchableSelect
               value={mKhoa}
               onChange={setMKhoa}
@@ -1338,6 +1391,7 @@ export default function LichDanhGia() {
                 label: k.ten_khoa,
               }))}
               placeholder="— Chọn khoa —"
+              disabled={!isAdmin}
             />
           </Field>
           <Field label="Vị trí đánh giá (theo cấu hình khoa)">
@@ -1473,6 +1527,25 @@ export default function LichDanhGia() {
               <p className="text-sm text-red-600 dark:text-red-400">
                 ✗ {deleteError}
               </p>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Modal "Xem thêm" — đủ lịch của 1 ngày (khi ngày đó có > 10 buổi) ── */}
+      <Modal
+        open={!!dayModalDate}
+        title={
+          dayModalDate
+            ? `Lịch ngày ${fmtVN(dayModalDate)}${fmt(dayModalDate) === todayStr ? " • Hôm nay" : ""}`
+            : "Lịch trong ngày"
+        }
+        onClose={() => setDayModalDate(null)}
+      >
+        {dayModalDate && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {groupLich(lichForDay(dayModalDate)).map((g) =>
+              renderLichCard(g, dayModalDate),
             )}
           </div>
         )}

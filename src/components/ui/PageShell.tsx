@@ -2,6 +2,10 @@ import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '../../app/hooks'
 import { loadCatalog } from '../../features/qlcl/catalogSlice'
+import { loadDanhGia } from '../../features/qlcl/danhGiaSlice'
+import { loadKhacPhuc } from '../../features/qlcl/khacPhucSlice'
+import { loadTodayLich } from '../../features/qlcl/todayLichSlice'
+import { fmt } from '../../features/qlcl/lichUtils'
 
 interface PageHeaderProps {
   icon?: ReactNode
@@ -34,6 +38,7 @@ interface KpiCardProps {
   value: ReactNode
   sub?: ReactNode
   accent?: 'navy' | 'green' | 'red' | 'yellow' | 'blue'
+  delay?: number
 }
 
 const accentBar: Record<NonNullable<KpiCardProps['accent']>, string> = {
@@ -52,10 +57,11 @@ const accentText: Record<NonNullable<KpiCardProps['accent']>, string> = {
   blue: 'text-sky-600 dark:text-sky-400',
 }
 
-export function KpiCard({ label, value, sub, accent = 'navy' }: KpiCardProps) {
+export function KpiCard({ label, value, sub, accent = 'navy', delay = 0 }: KpiCardProps) {
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md before:absolute before:inset-y-0 before:left-0 before:w-1 dark:border-gray-800 dark:bg-gray-900 ${accentBar[accent]}`}
+      className={`animate-rise-in relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md before:absolute before:inset-y-0 before:left-0 before:w-1 dark:border-gray-800 dark:bg-gray-900 ${accentBar[accent]}`}
+      style={{ animationDelay: `${delay}ms` }}
     >
       <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${accentText[accent]}`}>{value}</p>
@@ -176,4 +182,40 @@ export function useCatalog() {
     if (catalog.status === 'idle') dispatch(loadCatalog())
   }, [catalog.status, dispatch])
   return catalog
+}
+
+// Toàn bộ danh sách đánh giá — cache dùng chung nhiều trang (xem danhGiaSlice.ts),
+// chỉ gọi API khi status còn 'idle' (lần đầu cần tới, hoặc sau khi bị invalidate).
+export function useDanhGia() {
+  const dispatch = useAppDispatch()
+  const danhGia = useAppSelector((s) => s.danhGia)
+  useEffect(() => {
+    if (danhGia.status === 'idle') dispatch(loadDanhGia())
+  }, [danhGia.status, dispatch])
+  return danhGia
+}
+
+// Toàn bộ danh sách khắc phục — cache dùng chung (xem khacPhucSlice.ts).
+export function useKhacPhuc() {
+  const dispatch = useAppDispatch()
+  const khacPhuc = useAppSelector((s) => s.khacPhuc)
+  useEffect(() => {
+    if (khacPhuc.status === 'idle') dispatch(loadKhacPhuc())
+  }, [khacPhuc.status, dispatch])
+  return khacPhuc
+}
+
+// Lịch phân công của đúng hôm nay — cache dùng chung giữa banner "Lịch hôm
+// nay" và trang Thống kê (xem todayLichSlice.ts). Tự phát hiện lệch ngày
+// (app mở qua nửa đêm) để fetch lại.
+export function useTodayLich() {
+  const dispatch = useAppDispatch()
+  const todayLich = useAppSelector((s) => s.todayLich)
+  const todayStr = fmt(new Date())
+  useEffect(() => {
+    if (todayLich.status === 'idle' || (todayLich.status === 'succeeded' && todayLich.dateFetched !== todayStr)) {
+      dispatch(loadTodayLich())
+    }
+  }, [todayLich.status, todayLich.dateFetched, todayStr, dispatch])
+  return todayLich
 }

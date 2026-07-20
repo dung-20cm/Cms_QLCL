@@ -1,15 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarDays } from "lucide-react";
 import { useAppSelector } from "../../app/hooks";
-import { useCatalog } from "../ui/PageShell";
+import { useCatalog, useDanhGia, useTodayLich } from "../ui/PageShell";
 import { useHasAnyPermission } from "../../features/auth/usePermission";
 import { PERM_XEM_LICH } from "../../features/auth/permissions";
-import {
-  fetchLichPhanCongList,
-  fetchDanhGiaList,
-} from "../../features/qlcl/api";
-import type { LichPhanCong, DanhGia } from "../../features/qlcl/types";
 import {
   fmt,
   lichForDate,
@@ -22,32 +17,22 @@ import {
 // — LUÔN chỉ hiện lịch mà người phụ trách thuộc ĐÚNG khoa/phòng của tài khoản đang
 // đăng nhập (nhất quán với "Phân công hôm nay" ở trang Lịch đánh giá), tránh lộ
 // lịch của khoa/phòng khác cho tài khoản không có phạm vi xem toàn viện.
+// Dữ liệu lấy từ cache Redux dùng chung (todayLichSlice/danhGiaSlice) — không tự
+// gọi API riêng nữa, tránh gọi trùng với trang Thống kê khi cùng mount lúc đăng nhập.
 export default function TodayLichBanner() {
   const navigate = useNavigate();
   const currentUser = useAppSelector((s) => s.auth.user);
   const canSeeLich = useHasAnyPermission(PERM_XEM_LICH);
   const { users } = useCatalog();
-  const [lichList, setLichList] = useState<LichPhanCong[]>([]);
-  const [danhGiaList, setDanhGiaList] = useState<DanhGia[]>([]);
+  const { rows: lichList } = useTodayLich();
+  const { rows: danhGiaList } = useDanhGia();
 
-  useEffect(() => {
-    if (!canSeeLich) return;
-    Promise.all([
-      fetchLichPhanCongList(),
-      fetchDanhGiaList().catch(() => ({ rows: [] as DanhGia[], total: 0 })),
-    ])
-      .then(([lich, dg]) => {
-        setLichList(lich.rows.filter((l) => l.active !== 0));
-        setDanhGiaList(dg.rows.filter((d) => d.active !== 0));
-      })
-      .catch(() => {});
-  }, [canSeeLich]);
+  const todayStr = fmt(new Date());
 
   const userKhoaMap = useMemo(
     () => new Map(users.map((u) => [u.id, u.khoa_id ?? null])),
     [users],
   );
-  const todayStr = fmt(new Date());
 
   const todayGroups = useMemo(() => {
     if (currentUser?.khoa_id == null) return [];

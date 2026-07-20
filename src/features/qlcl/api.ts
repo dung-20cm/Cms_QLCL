@@ -265,8 +265,14 @@ export async function deleteKhacPhuc(id: number): Promise<void> {
 }
 
 // -- Lich phan cong --
-export const fetchLichPhanCongList = () =>
-  getList<LichPhanCong>("lich-phan-cong");
+// tu_ngay/den_ngay (YYYY-MM-DD): giới hạn theo khoảng ngày (VD: đúng 1 tuần
+// đang xem) để không tải toàn bộ bảng lich_phan_cong mỗi lần mở trang -- quan
+// trọng khi có nhiều người dùng cùng lúc. Bỏ trống vẫn được (lấy toàn bộ,
+// dùng cho các luồng khác nếu cần), nhưng trang Lịch đánh giá luôn truyền vào.
+export const fetchLichPhanCongList = (params?: {
+  tu_ngay?: string;
+  den_ngay?: string;
+}) => getList<LichPhanCong>("lich-phan-cong", params);
 
 export async function createUpdateLichPhanCong(
   payload: Partial<LichPhanCong>,

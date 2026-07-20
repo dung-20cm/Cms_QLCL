@@ -14,7 +14,17 @@ export default function TargetChart({ value = 0 }: TargetChartProps) {
 
   const options: ApexOptions = useMemo(
     () => ({
-      chart: { type: 'radialBar', fontFamily: 'inherit', background: 'transparent' },
+      chart: {
+        type: 'radialBar',
+        fontFamily: 'inherit',
+        background: 'transparent',
+        animations: {
+          enabled: true,
+          easing: 'easeinout',
+          speed: 800,
+          dynamicAnimation: { enabled: true, speed: 400 },
+        },
+      },
       theme: { mode },
       colors: ['#465fff'],
       plotOptions: {

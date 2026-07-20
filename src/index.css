@@ -71,3 +71,15 @@ body {
 .animate-slide-down {
   animation: slide-down 0.16s ease-out;
 }
+
+/* ── Hiệu ứng "nổi lên" khi mở trang (KPI card, biểu đồ) — dùng animation-delay
+   inline để tạo stagger theo thứ tự phần tử. `both` giữ trạng thái opacity:0
+   trước khi animation bắt đầu, tránh nháy phần tử ở delay > 0. ── */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-rise-in {
+  animation: rise-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

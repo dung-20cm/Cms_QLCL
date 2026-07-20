@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Wrench, RotateCcw, Pencil, Trash2 } from "lucide-react";
 import {
   PageHeader,
@@ -12,14 +12,13 @@ import {
   ErrorBanner,
   EmptyState,
   useCatalog,
+  useKhacPhuc,
 } from "../components/ui/PageShell";
 import SearchableSelect from "../components/ui/SearchableSelect";
 import Pagination, { usePagination } from "../components/ui/Pagination";
-import {
-  fetchKhacPhucList,
-  createUpdateKhacPhuc,
-  deleteKhacPhuc,
-} from "../features/qlcl/api";
+import { createUpdateKhacPhuc, deleteKhacPhuc } from "../features/qlcl/api";
+import { useAppDispatch } from "../app/hooks";
+import { loadKhacPhuc, invalidateKhacPhuc } from "../features/qlcl/khacPhucSlice";
 import type { KhacPhuc } from "../features/qlcl/types";
 
 const TRANG_THAI = ["Chưa bắt đầu", "Đang xử lý", "Đã xong"];
@@ -50,9 +49,12 @@ function soNgayConLai(hanXuLy: string | null): number | null {
 
 export default function TienDoKP() {
   const { users, khoaList } = useCatalog();
-  const [rows, setRows] = useState<KhacPhuc[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  // Dữ liệu lấy từ cache Redux dùng chung (khacPhucSlice) -- không tự gọi API
+  // riêng nữa. Sau khi sửa/xoá, gọi invalidateKhacPhuc() để lần đọc tiếp theo
+  // (ở đây và cả các trang khác đang dùng chung cache) tự làm mới.
+  const { rows, status, error } = useKhacPhuc();
+  const loading = status === "idle" || status === "loading";
 
   const [fTuan, setFTuan] = useState("");
   const [fTT, setFTT] = useState("");
@@ -67,19 +69,6 @@ export default function TienDoKP() {
   const [mGhiChu, setMGhiChu] = useState("");
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    fetchKhacPhucList()
-      .then((res) => setRows(res.rows.filter((r) => r.active !== 0)))
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Không tải được dữ liệu"),
-      )
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(load, [load]);
 
   const tuanOptions = useMemo(
     () => [...new Set(rows.map((r) => r.tuan).filter(Boolean))] as string[],
@@ -131,7 +120,7 @@ export default function TienDoKP() {
     if (!window.confirm("Xoá hành động khắc phục này?")) return;
     try {
       await deleteKhacPhuc(kp.id);
-      setRows((prev) => prev.filter((r) => r.id !== kp.id));
+      dispatch(invalidateKhacPhuc());
     } catch (err) {
       alert(err instanceof Error ? err.message : "Xoá thất bại");
     }
@@ -163,7 +152,7 @@ export default function TienDoKP() {
         ghi_chu: mGhiChu || null,
       });
       setEditing(null);
-      load();
+      dispatch(invalidateKhacPhuc());
     } catch (err) {
       setModalError(err instanceof Error ? err.message : "Lưu thất bại");
     } finally {
@@ -178,7 +167,7 @@ export default function TienDoKP() {
         title="Theo dõi tiến độ khắc phục"
         subtitle="Tổng hợp lỗi phát hiện qua đánh giá — cập nhật tiến độ khắc phục hàng tuần"
       />
-      {error && <ErrorBanner message={error} onRetry={load} />}
+      {error && <ErrorBanner message={error} onRetry={() => dispatch(loadKhacPhuc())} />}
 
       <div className="mb-5 grid grid-cols-2 gap-4 xl:grid-cols-5">
         <KpiCard label="Tổng hành động" value={kpi.total} accent="navy" />

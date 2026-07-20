@@ -9,7 +9,9 @@ import {
   Camera,
   PartyPopper,
 } from "lucide-react";
-import { useAppSelector } from "../app/hooks";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
+import { invalidateDanhGia } from "../features/qlcl/danhGiaSlice";
+import { invalidateKhacPhuc } from "../features/qlcl/khacPhucSlice";
 import {
   PageHeader,
   Field,
@@ -68,6 +70,10 @@ function groupByS(items: ChecklistItem[]): SGroup[] {
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
+// Vị trí tổng hợp (bộ tiêu chí dùng chung) — ưu tiên chọn mặc định khi có, xem
+// trang Cấu hình > Tiêu chí.
+const TAT_CA_VI_TRI_LABEL = "Tất cả vị trí";
+
 export default function BangKiem() {
   const {
     khoaList,
@@ -77,6 +83,7 @@ export default function BangKiem() {
     error: catalogError,
   } = useCatalog();
   const user = useAppSelector((s) => s.auth.user);
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
   // Đồng đánh giá — cán bộ CÙNG tham gia chấm bảng kiểm này, ngoài người đang
@@ -144,14 +151,17 @@ export default function BangKiem() {
   }, [user]);
 
   // Giống 5S_Dashboard_BVTB_v4.html: mặc định hiển thị luôn bảng kiểm của
-  // vị trí đầu tiên thay vì chờ người dùng chọn. Nếu khoa có cấu hình thì chỉ
-  // hiện các vị trí đã tick trong Cấu hình; đổi khoa mà vị trí đang chọn không
-  // thuộc cấu hình mới => tự nhảy về vị trí đầu tiên hợp lệ.
+  // 1 vị trí thay vì chờ người dùng chọn — ưu tiên vị trí "Tất cả vị trí" (bộ
+  // tiêu chí tổng hợp dùng chung) nếu khoa đang chọn có cấu hình vị trí này,
+  // nếu không thì lấy vị trí đầu tiên. Đổi khoa mà vị trí đang chọn không
+  // thuộc cấu hình mới => tự nhảy về vị trí mặc định hợp lệ. Vẫn chọn được vị
+  // trí khác bất kỳ lúc nào qua select bên dưới.
   useEffect(() => {
     if (configTypes.length === 0) return;
     const valid = configTypes.some((v) => v.id === vitriTypeId);
     if (vitriTypeId === "" || !valid) {
-      setVitriTypeId(configTypes[0].id);
+      const tatCa = configTypes.find((v) => v.ten_vitri === TAT_CA_VI_TRI_LABEL);
+      setVitriTypeId((tatCa ?? configTypes[0]).id);
       setViTriChiTietIds([]);
       setViTriChiTiet("");
     }
@@ -259,6 +269,11 @@ export default function BangKiem() {
       });
       setSaved(rec);
       setShowSuccessModal(true);
+      // Lưu 1 lượt đánh giá mới -- backend tự tạo thêm hành động khắc phục cho
+      // mọi tiêu chí ✗ -- đánh dấu cả 2 cache dùng chung (Thống kê, Tổng hợp,
+      // Xu hướng, Báo cáo, Tiến độ khắc phục) là cũ để lần đọc tiếp theo tự làm mới.
+      dispatch(invalidateDanhGia());
+      dispatch(invalidateKhacPhuc());
 
       // Upload ảnh minh chứng (nếu có) gắn vào lượt đánh giá vừa tạo
       if (photos.length > 0 && rec?.id) {

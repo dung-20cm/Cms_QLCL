@@ -1,18 +1,23 @@
+import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 
 interface StatCardProps {
   label: string
-  value: string
+  value: ReactNode
   change: number
   icon: LucideIcon
+  delay?: number
 }
 
-export default function StatCard({ label, value, change, icon: Icon }: StatCardProps) {
+export default function StatCard({ label, value, change, icon: Icon, delay = 0 }: StatCardProps) {
   const positive = change >= 0
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
+    <div
+      className="animate-rise-in rounded-2xl border border-gray-200 bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+      style={{ animationDelay: `${delay}ms` }}
+    >
       <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-50 dark:bg-gray-800">
         <Icon size={20} className="text-brand-500 dark:text-brand-400" />
       </div>
