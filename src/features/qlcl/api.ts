@@ -244,10 +244,14 @@ export async function createDanhGia(
 }
 
 // -- Khac phuc --
+// tu_ngay/den_ngay (YYYY-MM-DD): giới hạn theo khoảng ngày phát hiện lỗi (VD:
+// đúng 1 tuần đang xem) -- giống cách fetchLichPhanCongList lọc theo tuần.
 export const fetchKhacPhucList = (params?: {
   trang_thai?: string;
   khoa_id?: number;
   nguoi_phu_trach_id?: number;
+  tu_ngay?: string;
+  den_ngay?: string;
 }) => getList<KhacPhuc>("khac-phuc", params);
 
 export async function createUpdateKhacPhuc(

@@ -141,7 +141,12 @@ export interface DanhGiaChiTiet {
 
 export interface KhacPhuc {
   id: number
-  danh_gia_chi_tiet_id: number
+  danh_gia_chi_tiet_id: number | null // null = tạo tay, không gắn 1 tiêu chí đánh giá cụ thể
+  khoa_id: number | null
+  vitri_type_id: number | null
+  s_id: string | null // "S1".."S5"
+  mo_ta_loi: string | null // mô tả lỗi/tiêu chí chưa đạt -- tự nhập khi tạo tay
+  ngay_phat_hien: string | null
   nguoi_phu_trach_id: number | null
   hanh_dong_khac_phuc: string
   han_xu_ly: string | null
@@ -150,7 +155,9 @@ export interface KhacPhuc {
   ghi_chu: string | null
   active: number
   createdAt: string
-  danh_gia_chi_tiet?: DanhGiaChiTiet
+  khoa?: { id: number; ten_khoa: string } | null
+  vitri_type?: { id: number; ten_vitri: string } | null
+  danh_gia_chi_tiet?: DanhGiaChiTiet | null
   nguoi_phu_trach?: UserLite | null
 }
 

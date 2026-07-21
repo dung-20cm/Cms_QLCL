@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Printer, FileDown } from 'lucide-react'
 import {
   PageHeader,
@@ -18,9 +18,11 @@ import SearchableSelect from '../components/ui/SearchableSelect'
 import { useAppDispatch } from '../app/hooks'
 import { loadDanhGia } from '../features/qlcl/danhGiaSlice'
 import { loadKhacPhuc } from '../features/qlcl/khacPhucSlice'
+import { smartSuggestKP } from '../features/qlcl/aiSuggestKP'
+import { normalizeVn } from '../components/ui/searchNormalize'
 import type { DanhGia, KhacPhuc } from '../features/qlcl/types'
 
-type RptType = 'luot' | 'thang' | 'donvi'
+type RptType = 'luot' | 'thang' | 'donvi' | 'guikhoa'
 
 const S_META: Record<string, { name: string; color: string }> = {
   S1: { name: 'Sàng lọc', color: '#D85A30' },
@@ -54,22 +56,59 @@ function barChart(pct: number) {
   return '█'.repeat(n) + '░'.repeat(20 - n)
 }
 
+// Cộng N ngày LÀM VIỆC (bỏ T7/CN) kể từ 1 ngày -- dùng tính hạn nộp phiếu yêu cầu khắc phục
+function addWorkDays(from: Date, days: number): Date {
+  const d = new Date(from)
+  let added = 0
+  while (added < days) {
+    d.setDate(d.getDate() + 1)
+    const dow = d.getDay()
+    if (dow !== 0 && dow !== 6) added++
+  }
+  return d
+}
+
+// Mã đơn vị viết tắt cho số hiệu văn bản (VD "Phòng Tài chính – Kế toán" -> "TCKT") --
+// tự suy ra từ TÊN KHOA THỰC TẾ trong CSDL bằng cách bỏ tiền tố Khoa/Phòng/Trung tâm/...
+// rồi lấy chữ cái đầu mỗi từ còn lại (đã bỏ dấu). Không dùng bảng tra cứng như file mẫu
+// (file mẫu có bảng MA_DON_VI cố định nhưng bị lệch với tên khoa thật trong nhiều trường
+// hợp) -- thuật toán này luôn ra kết quả hợp lý với BẤT KỲ tên khoa nào trong hệ thống.
+function maDonVi(ten: string): string {
+  const stripped = ten.replace(/^(Khoa|Phòng|Trung tâm|Ban|Khu vực)\s+/i, '')
+  const words = normalizeVn(stripped)
+    .split(/[\s–-]+/)
+    .filter(Boolean)
+  const code = words.map((w) => w[0]).join('').toUpperCase()
+  return code || 'DV'
+}
+
 // CSS thể thức NĐ30 — dịch nguyên từ khối `.pa-*` trong 5S_Dashboard_BVTB_v4.html
 // (dùng chung cho cả preview trên web LẪN file .doc xuất ra, để không lệch định
 // dạng giữa 2 nơi — khác bản trước đây dùng class Tailwind, Word không đọc được).
 const REPORT_CSS = `
 .pa-wrap{font-family:'Times New Roman',Times,serif;font-size:13pt;color:#000;background:#fff;padding:15mm 15mm 15mm 25mm;line-height:1.5;max-width:210mm;margin:0 auto;box-sizing:border-box}
-.pa-nd30-header{display:table;width:100%;margin-bottom:4mm}
-.pa-nd30-left{display:table-cell;width:50%;vertical-align:top;text-align:center}
-.pa-nd30-right{display:table-cell;width:50%;vertical-align:top;text-align:center}
+/* Word (mở .doc qua engine riêng, không phải trình duyệt) không cascade
+   font-family từ div cha (.pa-wrap) xuống bên trong <table> một cách đáng
+   tin cậy -- chữ trong mọi bảng bị rơi về font mặc định của Word (thường là
+   Calibri) nếu không khai báo lại tường minh. Khai báo lại ở đây cho MỌI
+   bảng/ô trong phiếu để khớp đúng Times New Roman như web hiển thị. */
+.pa-wrap table,.pa-wrap td,.pa-wrap th{font-family:'Times New Roman',Times,serif}
+/* table-layout:fixed + mso-padding-alt:0 -- Word tự áp lề trong ô (~2mm mỗi
+   phía) và có thể auto-size cột 50/50 theo nội dung thay vì đúng theo CSS
+   width nếu không khoá layout cứng -- 2 việc này khiến cột phải bị hẹp hơn
+   85mm tính toán trên web, làm chữ vẫn xuống dòng dù đã giảm cỡ chữ. */
+.pa-nd30-header{width:100%;table-layout:fixed;border-collapse:collapse;border:none;margin-bottom:4mm}
+.pa-nd30-header td{border:none;padding:0;width:50%;vertical-align:top;text-align:center;mso-padding-alt:0mm 0mm 0mm 0mm}
 .pa-nd30-coquan{font-size:12pt;font-weight:bold;text-transform:uppercase;line-height:1.3}
 .pa-nd30-ten{font-size:12pt;font-weight:bold;text-transform:uppercase;line-height:1.3}
 .pa-nd30-gach{width:40%;height:0;border-bottom:1.5pt solid #000;margin:2mm auto 0}
-.pa-nd30-quochieu{font-size:12pt;font-weight:bold;text-transform:uppercase}
+/* 9pt -- 10pt vẫn còn xuống dòng khi mở bằng Word thật (Word tính bề rộng ô
+   hẹp hơn ước lượng trên web), giảm thêm 1 nấc cho chắc chắn vừa 1 dòng. */
+.pa-nd30-quochieu{font-size:9pt;font-weight:bold;text-transform:uppercase}
 .pa-nd30-tieungu{font-size:13pt;font-weight:bold;text-decoration:underline}
-.pa-nd30-sohieu{display:table;width:100%;margin:3mm 0 0}
-.pa-nd30-so{display:table-cell;width:50%;text-align:center;font-size:12pt}
-.pa-nd30-ngay{display:table-cell;width:50%;text-align:center;font-size:12pt;font-style:italic}
+.pa-nd30-sohieu{width:100%;table-layout:fixed;border-collapse:collapse;border:none;margin:3mm 0 0}
+.pa-nd30-sohieu td{border:none;padding:0;width:50%;text-align:center;font-size:12pt;mso-padding-alt:0mm 0mm 0mm 0mm}
+.pa-nd30-ngay{font-style:italic}
 .pa-nd30-tenloai{text-align:center;font-size:14pt;font-weight:bold;text-transform:uppercase;margin:6mm 0 0}
 .pa-nd30-trichyeu{text-align:center;font-size:13pt;font-weight:bold;margin:1mm 0 6mm}
 .pa-muc{font-weight:bold;font-size:13pt;margin:5mm 0 2mm;text-transform:uppercase}
@@ -84,10 +123,11 @@ const REPORT_CSS = `
 .pa-ket-diem{font-size:28pt;font-weight:bold;line-height:1}
 .pa-ket-loai{font-size:13pt;font-weight:bold;margin-top:1mm}
 .pa-ket-detail{font-size:11pt;color:#444;margin-top:1mm}
-.pa-footer-tbl{display:table;width:100%;margin-top:8mm}
-.pa-noinha{display:table-cell;width:45%;vertical-align:top;font-size:11pt}
+.pa-footer-tbl{width:100%;table-layout:fixed;border-collapse:collapse;border:none;margin-top:8mm}
+.pa-footer-tbl td{border:none;padding:0;vertical-align:top;mso-padding-alt:0mm 0mm 0mm 0mm}
+.pa-noinha{width:45%;font-size:11pt}
 .pa-noinha-title{font-weight:bold;font-size:12pt}
-.pa-kyte{display:table-cell;width:55%;text-align:center;vertical-align:top}
+.pa-kyte{width:55%;text-align:center}
 .pa-kyte-chucvu{font-weight:bold;font-size:13pt;text-transform:uppercase}
 .pa-kyte-note{font-style:italic;font-size:11pt}
 .pa-kyte-ten{font-weight:bold;font-size:13pt;margin-top:25mm}
@@ -104,7 +144,11 @@ function exportWordDoc(node: HTMLElement, filename: string) {
 <head><meta charset="UTF-8"><title>Báo cáo 5S</title>
 <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->
 <style>
-@page { size: 21cm 29.7cm; margin: 20mm 20mm 20mm 30mm; }
+/* margin:0 -- .pa-wrap tự có padding riêng làm lề trang (15/15/15/25mm, khớp
+   ĐÚNG với web preview + bản in). Nếu @page cũng đặt margin thì Word sẽ cộng
+   dồn 2 lớp lề (lề trang + padding) khiến nội dung bị thu hẹp/lệch so với
+   web -- đây là nguyên nhân file .doc xuất ra không khớp mẫu hiển thị. */
+@page { size: 21cm 29.7cm; margin: 0; }
 body { margin: 0; }
 ${REPORT_CSS}
 </style>
@@ -147,6 +191,13 @@ export default function BaoCao() {
   const [dvKhoa, setDvKhoa] = useState('')
   const [dvFrom, setDvFrom] = useState('')
   const [dvTo, setDvTo] = useState('')
+
+  // ── Phiếu yêu cầu khắc phục (gửi đơn vị) ──
+  const [gkMode, setGkMode] = useState<'ngay' | 'luot'>('ngay')
+  const [gkNgay, setGkNgay] = useState('')
+  const [gkKhoa, setGkKhoa] = useState('')
+  const [gkLuot, setGkLuot] = useState('')
+  const [gkHanDays, setGkHanDays] = useState(5)
 
   // KPI hôm nay
   const today = new Date().toISOString().slice(0, 10)
@@ -191,15 +242,74 @@ export default function BaoCao() {
       .sort((a, b) => a.ngay_danh_gia.localeCompare(b.ngay_danh_gia))
   }, [rows, dvKhoa, dvFrom, dvTo])
 
+  // ── Phiếu yêu cầu khắc phục: 2 chế độ chọn dữ liệu ──
+  // "Theo ngày": chọn 1 ngày đánh giá -> chỉ hiện các khoa CÓ đánh giá đúng ngày đó
+  // (đếm theo toàn viện, không lọc khoa trước) -- tự chọn sẵn nếu ngày đó chỉ có
+  // đúng 1 khoa được đánh giá (đỡ phải bấm thêm 1 bước).
+  const gkNgayOptions = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const r of rows) map.set(r.ngay_danh_gia, (map.get(r.ngay_danh_gia) || 0) + 1)
+    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+  }, [rows])
+
+  const gkKhoaOptionsForNgay = useMemo(() => {
+    if (!gkNgay) return [] as { khoa_id: number; name: string; n: number }[]
+    const map = new Map<number, { name: string; n: number }>()
+    for (const r of rows) {
+      if (r.ngay_danh_gia !== gkNgay) continue
+      const cur = map.get(r.khoa_id) || { name: r.khoa?.ten_khoa || String(r.khoa_id), n: 0 }
+      cur.n++
+      map.set(r.khoa_id, cur)
+    }
+    return [...map.entries()]
+      .map(([khoa_id, v]) => ({ khoa_id, ...v }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+  }, [rows, gkNgay])
+
+  useEffect(() => {
+    setGkKhoa(gkKhoaOptionsForNgay.length === 1 ? String(gkKhoaOptionsForNgay[0].khoa_id) : '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ reset khi đổi NGÀY, không phải khi danh sách khoa tính lại
+  }, [gkNgay])
+
+  const gkRecs = useMemo(() => {
+    if (gkMode === 'luot') {
+      const r = rows.find((x) => String(x.id) === gkLuot)
+      return r ? [r] : []
+    }
+    if (!gkNgay || !gkKhoa) return []
+    return rows.filter((r) => r.ngay_danh_gia === gkNgay && String(r.khoa_id) === gkKhoa)
+  }, [gkMode, gkLuot, gkNgay, gkKhoa, rows])
+
+  // Tiêu chí chưa đạt của 1 lượt đánh giá = các dòng khac_phuc gắn với lượt đó
+  // (khac_phuc chỉ tự tạo cho tiêu chí ✗ khi lưu Bảng kiểm — xem BangKiem.tsx/danhGia.service.js)
+  const kpByDanhGiaId = useMemo(() => {
+    const m = new Map<number, KhacPhuc[]>()
+    for (const k of kpRows) {
+      const id = k.danh_gia_chi_tiet?.danh_gia_id
+      if (id == null) continue
+      if (!m.has(id)) m.set(id, [])
+      m.get(id)!.push(k)
+    }
+    return m
+  }, [kpRows])
+
   const showPreview =
     (rptType === 'luot' && !!luot) ||
     (rptType === 'thang' && !!selThang) ||
-    (rptType === 'donvi' && !!dvKhoa)
+    (rptType === 'donvi' && !!dvKhoa) ||
+    (rptType === 'guikhoa' && gkRecs.length > 0)
 
   function handleExportWord() {
     if (!printAreaRef.current) return
     const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-    const prefix = rptType === 'luot' ? 'PhieuKetQua5S' : rptType === 'thang' ? 'BaoCaoThang5S' : 'BaoCaoDonVi5S'
+    const prefix =
+      rptType === 'luot'
+        ? 'PhieuKetQua5S'
+        : rptType === 'thang'
+          ? 'BaoCaoThang5S'
+          : rptType === 'donvi'
+            ? 'BaoCaoDonVi5S'
+            : 'PhieuYeuCauKP5S'
     exportWordDoc(printAreaRef.current, `${prefix}_${stamp}.doc`)
   }
 
@@ -251,7 +361,7 @@ export default function BaoCao() {
         </div>
 
         {/* ── Chọn loại báo cáo ── */}
-        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <button
             onClick={() => setRptType('luot')}
             className={`rounded-2xl border p-4 text-left transition ${
@@ -284,6 +394,17 @@ export default function BaoCao() {
           >
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">🏥 Báo cáo theo đơn vị & ngày</p>
             <p className="mt-1 text-xs text-gray-400">Lịch sử toàn bộ lượt đánh giá của 1 khoa trong 1 khoảng thời gian</p>
+          </button>
+          <button
+            onClick={() => setRptType('guikhoa')}
+            className={`rounded-2xl border p-4 text-left transition ${
+              rptType === 'guikhoa'
+                ? 'border-brand-500 bg-brand-25 ring-1 ring-brand-200 dark:bg-brand-500/5'
+                : 'border-gray-200 bg-white hover:border-brand-200 dark:border-gray-800 dark:bg-gray-900'
+            }`}
+          >
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">📨 Phiếu yêu cầu khắc phục (gửi đơn vị)</p>
+            <p className="mt-1 text-xs text-gray-400">Chỉ liệt kê lỗi — yêu cầu đơn vị điền hành động KP và nộp về trong hạn quy định</p>
           </button>
         </div>
 
@@ -344,6 +465,73 @@ export default function BaoCao() {
               </Field>
             </>
           )}
+          {rptType === 'guikhoa' && (
+            <>
+              <Field label="Chế độ">
+                <select
+                  className={inputCls}
+                  value={gkMode}
+                  onChange={(e) => setGkMode(e.target.value as 'ngay' | 'luot')}
+                >
+                  <option value="ngay">📅 Theo ngày (tổng hợp tất cả vị trí)</option>
+                  <option value="luot">📋 Theo từng lượt đánh giá</option>
+                </select>
+              </Field>
+              {gkMode === 'ngay' ? (
+                <>
+                  <Field label="Chọn ngày đánh giá">
+                    <select className={inputCls} value={gkNgay} onChange={(e) => setGkNgay(e.target.value)}>
+                      <option value="">— Chọn ngày —</option>
+                      {gkNgayOptions.map(([ngay, n]) => {
+                        const isToday = ngay === today
+                        return (
+                          <option key={ngay} value={ngay}>
+                            {new Date(ngay).toLocaleDateString('vi-VN')}
+                            {isToday ? ' ★ Hôm nay' : ''} ({n} vị trí)
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </Field>
+                  {gkNgay && (
+                    <Field label="Chọn khoa / phòng / TT">
+                      <select className={inputCls} value={gkKhoa} onChange={(e) => setGkKhoa(e.target.value)}>
+                        <option value="">— Chọn khoa —</option>
+                        {gkKhoaOptionsForNgay.map((k) => (
+                          <option key={k.khoa_id} value={k.khoa_id}>
+                            {k.name} ({k.n} vị trí)
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  )}
+                </>
+              ) : (
+                <Field label="Chọn lượt đánh giá" className="min-w-[300px]">
+                  <select className={inputCls} value={gkLuot} onChange={(e) => setGkLuot(e.target.value)}>
+                    <option value="">— Chọn lượt —</option>
+                    {rows.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {new Date(r.ngay_danh_gia).toLocaleDateString('vi-VN')} · {r.khoa?.ten_khoa} · {r.vitri_type?.ten_vitri} · {r.pct}%
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+              <Field label="Hạn nộp KP (mặc định 5 ngày)">
+                <input
+                  type="number"
+                  className={inputCls}
+                  style={{ maxWidth: 90 }}
+                  value={gkHanDays}
+                  min={1}
+                  max={30}
+                  onChange={(e) => setGkHanDays(Number(e.target.value) || 5)}
+                />
+              </Field>
+              <span className="pb-2 text-xs text-gray-400">ngày làm việc</span>
+            </>
+          )}
         </div>
 
         {loading && <LoadingRow />}
@@ -356,22 +544,28 @@ export default function BaoCao() {
       {showPreview && (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 print:rounded-none print:border-0 print:shadow-none">
           <div id="print-area" ref={printAreaRef}>
-            <div className="pa-wrap">
-              {rptType === 'luot' && luot && (
-                <LuotReport luot={luot} kpList={luotKP} nhanXet={nhanXet} />
-              )}
-              {rptType === 'thang' && (
-                <ThangReport thang={selThang} khoaLabel={khoaList.find((k) => String(k.id) === selKhoa)?.ten_khoa} rows={thangRows} />
-              )}
-              {rptType === 'donvi' && (
-                <DonViReport
-                  khoaTen={khoaList.find((k) => String(k.id) === dvKhoa)?.ten_khoa || ''}
-                  from={dvFrom}
-                  to={dvTo}
-                  rows={donViRows}
-                />
-              )}
-            </div>
+            {rptType === 'guikhoa' ? (
+              gkRecs.length > 0 && (
+                <GuiKhoaReport recs={gkRecs} kpByDanhGiaId={kpByDanhGiaId} hanDays={gkHanDays} />
+              )
+            ) : (
+              <div className="pa-wrap">
+                {rptType === 'luot' && luot && (
+                  <LuotReport luot={luot} kpList={luotKP} nhanXet={nhanXet} />
+                )}
+                {rptType === 'thang' && (
+                  <ThangReport thang={selThang} khoaLabel={khoaList.find((k) => String(k.id) === selKhoa)?.ten_khoa} rows={thangRows} />
+                )}
+                {rptType === 'donvi' && (
+                  <DonViReport
+                    khoaTen={khoaList.find((k) => String(k.id) === dvKhoa)?.ten_khoa || ''}
+                    from={dvFrom}
+                    to={dvTo}
+                    rows={donViRows}
+                  />
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -397,21 +591,27 @@ function VanBanHeader({
 }) {
   return (
     <>
-      <div className="pa-nd30-header">
-        <div className="pa-nd30-left">
+      {/* Dùng <table> thật thay vì div display:table -- Word (mở file .doc qua
+          engine riêng, không phải trình duyệt) không đọc display:table/table-cell,
+          sẽ xếp 2 cột chồng dọc thay vì song song như web preview. */}
+      <table className="pa-nd30-header" border={0} cellPadding={0} cellSpacing={0}><tbody><tr>
+        {/* Cột trái hẹp hơn (42%), cột phải rộng hơn (58%) -- nội dung cột phải
+            ("CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM") dài hơn cột trái, chia đều
+            50/50 làm nó thiếu chỗ và xuống dòng khi mở bằng Word. */}
+        <td className="pa-nd30-left" style={{ width: '42%' }}>
           <div className="pa-nd30-coquan">{coQuan1}</div>
           <div className="pa-nd30-ten">{coQuan2}</div>
           <div className="pa-nd30-gach" />
-        </div>
-        <div className="pa-nd30-right">
+        </td>
+        <td className="pa-nd30-right" style={{ width: '58%' }}>
           <div className="pa-nd30-quochieu">Cộng hoà xã hội chủ nghĩa Việt Nam</div>
           <div className="pa-nd30-tieungu">Độc lập – Tự do – Hạnh phúc</div>
-        </div>
-      </div>
-      <div className="pa-nd30-sohieu">
-        <div className="pa-nd30-so">Số: ………………/{soHieu}</div>
-        <div className="pa-nd30-ngay">{DIA_DANH}, {ngayVanBan}</div>
-      </div>
+        </td>
+      </tr></tbody></table>
+      <table className="pa-nd30-sohieu" border={0} cellPadding={0} cellSpacing={0}><tbody><tr>
+        <td className="pa-nd30-so">Số: ………………/{soHieu}</td>
+        <td className="pa-nd30-ngay">{DIA_DANH}, {ngayVanBan}</td>
+      </tr></tbody></table>
       <div className="pa-nd30-tenloai">{tenLoai}</div>
       <div className="pa-nd30-trichyeu">{trichYeu}</div>
     </>
@@ -529,7 +729,13 @@ function LuotReport({ luot, kpList, nhanXet }: { luot: DanhGia; kpList: KhacPhuc
                   {k.danh_gia_chi_tiet?.checklist_item?.tc}
                   {k.danh_gia_chi_tiet?.ghi_chu && <i> — {k.danh_gia_chi_tiet.ghi_chu}</i>}
                 </td>
-                <td>{k.hanh_dong_khac_phuc || '(chưa cập nhật)'}</td>
+                <td>
+                  {k.hanh_dong_khac_phuc || (
+                    <span style={{ color: '#185FA5', fontStyle: 'italic' }}>
+                      💡 Gợi ý AI: {smartSuggestKP(k.danh_gia_chi_tiet?.checklist_item?.tc || '', k.danh_gia_chi_tiet?.checklist_item?.s_id || '')}
+                    </span>
+                  )}
+                </td>
                 <td style={{ textAlign: 'center' }}>{k.han_xu_ly ? new Date(k.han_xu_ly).toLocaleDateString('vi-VN') : ''}</td>
                 <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{k.trang_thai}</td>
               </tr>
@@ -544,19 +750,19 @@ function LuotReport({ luot, kpList, nhanXet }: { luot: DanhGia; kpList: KhacPhuc
 
       <hr className="pa-divider" />
 
-      <div className="pa-footer-tbl">
-        <div className="pa-noinha">
+      <table className="pa-footer-tbl" border={0} cellPadding={0} cellSpacing={0}><tbody><tr>
+        <td className="pa-noinha">
           <div className="pa-noinha-title">Nơi nhận:</div>
           <div>- {luot.khoa?.ten_khoa} (để thực hiện);</div>
           <div>- Phòng QLCL (để theo dõi);</div>
           <div>- Lưu: VT, QLCL.</div>
-        </div>
-        <div className="pa-kyte">
+        </td>
+        <td className="pa-kyte">
           <div className="pa-kyte-chucvu">Trưởng phòng QLCL</div>
           <div className="pa-kyte-note">(Ký, ghi rõ họ tên)</div>
           <div className="pa-kyte-ten">&nbsp;</div>
-        </div>
-      </div>
+        </td>
+      </tr></tbody></table>
 
       <div className="pa-footer-note">
         Phiếu được tạo tự động bởi Bộ công cụ đánh giá 5S – Bệnh viện Đa khoa Thái Bình – Ngày in: {ngayThangNamStr()}
@@ -716,20 +922,20 @@ function ThangReport({ thang, khoaLabel, rows }: { thang: string; khoaLabel?: st
 
       <hr className="pa-divider" />
 
-      <div className="pa-footer-tbl">
-        <div className="pa-noinha">
+      <table className="pa-footer-tbl" border={0} cellPadding={0} cellSpacing={0}><tbody><tr>
+        <td className="pa-noinha">
           <div className="pa-noinha-title">Nơi nhận:</div>
           <div>- Ban Giám đốc (để báo cáo);</div>
           <div>- Các khoa, phòng, TT (để thực hiện);</div>
           <div>- Lưu: VT, QLCL.</div>
-        </div>
-        <div className="pa-kyte">
-          <div style={{ fontSize: '10pt', fontStyle: 'italic', color: '#444' }}>KT. Giám đốc</div>
+        </td>
+        <td className="pa-kyte">
+          <div style={{ fontSize: '10pt', fontStyle: 'italic', color: '#444' }}>KT. GIÁM ĐỐC</div>
           <div className="pa-kyte-chucvu">Phó Giám đốc</div>
           <div className="pa-kyte-note">(Ký, ghi rõ họ tên)</div>
           <div className="pa-kyte-ten">&nbsp;</div>
-        </div>
-      </div>
+        </td>
+      </tr></tbody></table>
 
       <div className="pa-footer-note">
         Báo cáo được tạo tự động bởi Bộ công cụ đánh giá 5S – Bệnh viện Đa khoa Thái Bình – Ngày in: {ngayThangNamStr()}
@@ -881,22 +1087,330 @@ function DonViReport({ khoaTen, from, to, rows }: { khoaTen: string; from: strin
 
       <hr className="pa-divider" />
 
-      <div className="pa-footer-tbl">
-        <div className="pa-noinha">
+      <table className="pa-footer-tbl" border={0} cellPadding={0} cellSpacing={0}><tbody><tr>
+        <td className="pa-noinha">
           <div className="pa-noinha-title">Nơi nhận:</div>
           <div>- {khoaTen} (để thực hiện);</div>
           <div>- Phòng QLCL (để lưu);</div>
           <div>- Lưu: VT, QLCL.</div>
-        </div>
-        <div className="pa-kyte">
+        </td>
+        <td className="pa-kyte">
           <div style={{ fontSize: '10pt', fontWeight: 'bold', color: '#444' }}>Trưởng phòng QLCL</div>
           <div className="pa-kyte-note">(Ký, ghi rõ họ tên)</div>
           <div className="pa-kyte-ten">&nbsp;</div>
-        </div>
-      </div>
+        </td>
+      </tr></tbody></table>
 
       <div className="pa-footer-note">
         Báo cáo được tạo tự động bởi Bộ công cụ đánh giá 5S – Bệnh viện Đa khoa Thái Bình – Ngày in: {ngayThangNamStr()}
+      </div>
+    </>
+  )
+}
+
+// Phiếu yêu cầu khắc phục (gửi đơn vị) — văn bản 2 trang độc lập:
+// Trang 1: Phòng QLCL gửi khoa, liệt kê các tiêu chí chưa đạt, yêu cầu nộp lại
+//   trong `hanDays` ngày làm việc.
+// Trang 2: mẫu để khoa điền tay (Gợi ý hành động KP tự động điền bằng AI cục bộ,
+//   các ô Hành động thực tế/Người thực hiện/Hạn HT để trống cho khoa điền).
+// Mỗi trang tự có khối .pa-wrap riêng (không lồng trong .pa-wrap của BaoCao())
+// để page-break-before hoạt động đúng, giống cách 5S_Dashboard_BVTB_v4 nối 2
+// văn bản độc lập (trang1 + trang2) thay vì lồng chung 1 khối.
+function GuiKhoaReport({
+  recs,
+  kpByDanhGiaId,
+  hanDays,
+}: {
+  recs: DanhGia[]
+  kpByDanhGiaId: Map<number, KhacPhuc[]>
+  hanDays: number
+}) {
+  const hanNop = addWorkDays(new Date(), hanDays)
+  const ngayDG = recs[0]?.ngay_danh_gia || ''
+  const khoaLabel = recs[0]?.khoa?.ten_khoa || ''
+  const isMulti = recs.length > 1
+
+  interface Issue {
+    danhGiaId: number
+    sid: string
+    color: string
+    text: string
+  }
+  const allIssues: Issue[] = []
+  for (const r of recs) {
+    for (const k of kpByDanhGiaId.get(r.id) || []) {
+      const ci = k.danh_gia_chi_tiet?.checklist_item
+      if (!ci) continue
+      allIssues.push({ danhGiaId: r.id, sid: ci.s_id, color: S_META[ci.s_id]?.color || '#444', text: ci.tc })
+    }
+  }
+
+  if (allIssues.length === 0) {
+    return (
+      <div className="pa-wrap" style={{ textAlign: 'center', padding: '30mm' }}>
+        <div style={{ fontSize: '14pt', color: '#1D9E75', fontWeight: 'bold' }}>
+          ✓ Không có tiêu chí chưa đạt — không cần phiếu yêu cầu khắc phục
+        </div>
+      </div>
+    )
+  }
+
+  const mucI = 'I'
+  const mucII = isMulti ? 'II' : 'I'
+  const mucIII = isMulti ? 'III' : 'II'
+  const maKhoa = maDonVi(khoaLabel)
+  const vitriGroups = recs
+    .map((r) => ({ r, issues: allIssues.filter((x) => x.danhGiaId === r.id) }))
+    .filter((g) => g.issues.length > 0)
+
+  return (
+    <>
+      {/* ══ TRANG 1 — Phiếu yêu cầu khắc phục (Phòng QLCL gửi khoa) ══ */}
+      <div className="pa-wrap">
+        <VanBanHeader
+          coQuan1="Sở Y tế tỉnh Hưng Yên"
+          coQuan2="Bệnh viện Đa khoa Thái Bình"
+          soHieu="YCKP-QLCL"
+          ngayVanBan={`ngày ${ngayThangNamStr()}`}
+          tenLoai="Phiếu yêu cầu khắc phục"
+          trichYeu={<>Kết quả đánh giá thực hành 5S – {khoaLabel}</>}
+        />
+        <div style={{ margin: '4mm 0 3mm', fontSize: '13pt' }}>
+          <span style={{ fontStyle: 'italic' }}>Kính gửi: </span>
+          <strong>{khoaLabel}</strong>
+        </div>
+        <div style={{ fontStyle: 'italic', fontSize: '12pt', marginBottom: '4mm' }}>
+          Căn cứ kết quả đánh giá thực hành 5S ngày{' '}
+          <strong>{new Date(ngayDG).toLocaleDateString('vi-VN')}</strong>
+          {isMulti ? (
+            <>
+              {' '}
+              tại <strong>{recs.length} vị trí</strong>
+            </>
+          ) : (
+            <>
+              {' '}
+              tại <strong>{recs[0]?.vitri_type?.ten_vitri}</strong> (Người đánh giá:{' '}
+              {recs[0]?.nguoi_danh_gia?.username})
+            </>
+          )}
+          , Phòng Quản lý chất lượng thông báo các tiêu chí chưa đạt yêu cầu như sau:
+        </div>
+
+        {isMulti && (
+          <>
+            <div className="pa-muc">{mucI}. Tổng hợp kết quả theo vị trí</div>
+            <table className="pa-bangket">
+              <thead>
+                <tr>
+                  <th style={{ width: '5%' }}>STT</th>
+                  <th style={{ width: '20%' }}>Vị trí</th>
+                  <th style={{ width: '18%' }}>Người ĐG</th>
+                  <th style={{ width: '12%' }}>Tỷ lệ</th>
+                  <th style={{ width: '15%' }}>Xếp loại</th>
+                  <th style={{ width: '12%' }}>TC chưa đạt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recs.map((r, i) => {
+                  const c = rptColor(r.pct)
+                  const issCount = allIssues.filter((x) => x.danhGiaId === r.id).length
+                  return (
+                    <tr key={r.id}>
+                      <td style={{ textAlign: 'center' }}>{i + 1}</td>
+                      <td>{r.vitri_type?.ten_vitri}</td>
+                      <td>{r.nguoi_danh_gia?.username}</td>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold', color: c }}>{r.pct}%</td>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold', color: c }}>{rptTag(r.pct)}</td>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#A32D2D' }}>{issCount}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        <div className="pa-muc">{mucII}. Các tiêu chí chưa đạt yêu cầu</div>
+        <table className="pa-bangket">
+          <thead>
+            <tr>
+              <th style={{ width: '5%' }}>STT</th>
+              {isMulti && <th style={{ width: '16%' }}>Vị trí</th>}
+              <th style={{ width: '7%' }}>Mã S</th>
+              <th style={{ width: isMulti ? '15%' : '20%' }}>Nội dung</th>
+              <th>Tiêu chí chưa đạt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {allIssues.map((iss, i) => {
+              const r = recs.find((x) => x.id === iss.danhGiaId)
+              return (
+                <tr key={i}>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{i + 1}</td>
+                  {isMulti && <td style={{ fontSize: '10pt' }}>{r?.vitri_type?.ten_vitri}</td>}
+                  <td style={{ fontWeight: 'bold', color: iss.color, textAlign: 'center' }}>{iss.sid}</td>
+                  <td style={{ color: iss.color, fontSize: '10pt' }}>{S_META[iss.sid]?.name}</td>
+                  <td>{iss.text}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        <div className="pa-muc">{mucIII}. Yêu cầu</div>
+        <div className="pa-nd" style={{ marginBottom: '2mm' }}>
+          Đề nghị <strong>{khoaLabel}</strong> thực hiện:
+        </div>
+        <div className="pa-nd" style={{ marginBottom: '2mm' }}>
+          <strong>1.</strong> Điền đầy đủ hành động khắc phục vào Phiếu hành động khắc phục đính kèm đối với
+          từng tiêu chí chưa đạt.
+        </div>
+        <div className="pa-nd" style={{ marginBottom: '2mm' }}>
+          <strong>2.</strong> Gửi Phiếu hành động khắc phục về Phòng QLCL trước ngày{' '}
+          <strong>{hanNop.toLocaleDateString('vi-VN')}</strong> ({hanDays} ngày làm việc kể từ ngày nhận phiếu
+          này).
+        </div>
+        <div className="pa-nd" style={{ marginBottom: '4mm' }}>
+          <strong>3.</strong> Triển khai thực hiện và báo cáo kết quả theo đúng hạn đã cam kết.
+        </div>
+        <div className="pa-nd" style={{ marginTop: '2mm', fontStyle: 'italic', fontSize: '12pt' }}>
+          Trân trọng đề nghị Trưởng {khoaLabel} quan tâm, phối hợp thực hiện./.
+        </div>
+
+        <hr className="pa-divider" />
+        <table className="pa-footer-tbl" border={0} cellPadding={0} cellSpacing={0}><tbody><tr>
+          <td className="pa-noinha">
+            <div className="pa-noinha-title">Nơi nhận:</div>
+            <div>- {khoaLabel} (để thực hiện);</div>
+            <div>- Phòng QLCL (để theo dõi);</div>
+            <div>- Lưu: VT, QLCL.</div>
+          </td>
+          <td className="pa-kyte">
+            <div className="pa-kyte-chucvu">Trưởng phòng QLCL</div>
+            <div className="pa-kyte-note">(Ký, ghi rõ họ tên)</div>
+            <div className="pa-kyte-ten">&nbsp;</div>
+          </td>
+        </tr></tbody></table>
+        <div className="pa-footer-note">
+          Phiếu được tạo tự động bởi Bộ công cụ đánh giá 5S – Bệnh viện Đa khoa Thái Bình – Ngày in:{' '}
+          {ngayThangNamStr()}
+        </div>
+      </div>
+
+      {/* ══ TRANG 2 — Phiếu hành động khắc phục (khoa điền, gửi lại QLCL) ══ */}
+      <div className="pa-wrap" style={{ pageBreakBefore: 'always' }}>
+        <VanBanHeader
+          coQuan1="Bệnh viện Đa khoa Thái Bình"
+          coQuan2={khoaLabel}
+          soHieu={`HĐKP-${maKhoa}`}
+          ngayVanBan={`ngày ${ngayThangNamStr()}`}
+          tenLoai="Phiếu hành động khắc phục"
+          trichYeu={
+            <>
+              {khoaLabel} – Ngày đánh giá: {new Date(ngayDG).toLocaleDateString('vi-VN')}
+            </>
+          }
+        />
+        <div style={{ margin: '3mm 0 2mm', fontSize: '12pt', fontStyle: 'italic' }}>
+          Kính gửi: <strong>Phòng Quản lý chất lượng – Bệnh viện Đa khoa Thái Bình</strong>
+        </div>
+        <div style={{ fontSize: '12pt', marginBottom: '4mm', fontStyle: 'italic' }}>
+          Thực hiện Phiếu yêu cầu khắc phục số ………………/YCKP-QLCL ngày {ngayThangNamStr()}, {khoaLabel} xin báo cáo
+          hành động khắc phục như sau:
+        </div>
+        <div style={{ fontWeight: 'bold', fontSize: '12pt', margin: '2mm 0', color: '#1B3A5C' }}>
+          Bảng hành động khắc phục
+        </div>
+        <table className="pa-bangket" style={{ marginTop: '3mm' }}>
+          <thead>
+            <tr>
+              <th style={{ width: '4%' }}>STT</th>
+              <th style={{ width: '6%' }}>Mã S</th>
+              <th style={{ width: '26%' }}>Tiêu chí chưa đạt</th>
+              <th style={{ width: '22%' }}>
+                Gợi ý hành động KP <span style={{ fontSize: '8pt', fontWeight: 400 }}>💡 Gợi ý</span>
+              </th>
+              <th style={{ width: '18%' }}>Hành động thực tế</th>
+              <th style={{ width: '12%' }}>Người thực hiện</th>
+              <th style={{ width: '12%' }}>Hạn HT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vitriGroups.map((grp) => (
+              <Fragment key={grp.r.id}>
+                <tr style={{ background: '#E8F0FB' }}>
+                  <td colSpan={7} style={{ fontWeight: 'bold', fontSize: '11pt', color: '#1B3A5C', padding: '5pt 8pt' }}>
+                    📍 Vị trí: <strong>{grp.r.vitri_type?.ten_vitri}</strong>
+                    &nbsp;|&nbsp; Ngày ĐG: {new Date(grp.r.ngay_danh_gia).toLocaleDateString('vi-VN')}
+                    &nbsp;|&nbsp; Tỷ lệ: <strong>{grp.r.pct}%</strong>
+                  </td>
+                </tr>
+                {grp.issues.map((iss, i) => (
+                  <tr key={i}>
+                    <td style={{ textAlign: 'center', fontWeight: 'bold', verticalAlign: 'middle' }}>{i + 1}</td>
+                    <td style={{ fontWeight: 'bold', color: iss.color, textAlign: 'center', verticalAlign: 'middle' }}>
+                      {iss.sid}
+                    </td>
+                    <td style={{ fontSize: '10pt' }}>{iss.text}</td>
+                    <td style={{ fontSize: '10pt', color: '#185FA5' }}>
+                      <span style={{ fontSize: '9pt', marginRight: 3 }}>💡</span>
+                      {smartSuggestKP(iss.text, iss.sid)}
+                    </td>
+                    <td>
+                      &nbsp;
+                      <br />
+                      &nbsp;
+                    </td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ marginTop: '5mm', fontSize: '11pt', fontStyle: 'italic' }}>
+          {khoaLabel} cam kết thực hiện đúng các hành động khắc phục trên và báo cáo kết quả về Phòng Quản lý
+          chất lượng theo đúng hạn đã ghi.
+        </div>
+        {/* Bảng thật thay vì display:grid -- Word không đọc CSS Grid, sẽ xếp
+            3 cột chồng dọc thay vì song song như web preview. table-layout:fixed
+            + border=0 -- nếu không khoá cứng, Word tự co giãn cột theo độ dài
+            chữ trong ô (VD "TRƯỞNG BAN BẢO VỆ" dài hơn) khiến 3 cột lệch nhau,
+            nhìn mất cân đối/không thẳng trục thay vì chia đều 3 phần bằng nhau. */}
+        <table
+          style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: 'none', marginTop: '8mm' }}
+          border={0}
+          cellPadding={0}
+          cellSpacing={0}
+        >
+          <tbody>
+            <tr>
+              <td style={{ border: 'none', width: '33.33%', textAlign: 'center', fontSize: '11pt' }}>
+                <div style={{ fontStyle: 'italic' }}>Người điền phiếu</div>
+                <div style={{ fontWeight: 'bold' }}>(Ký, ghi rõ họ tên)</div>
+                <div style={{ marginTop: '18mm' }}>&nbsp;</div>
+              </td>
+              <td style={{ border: 'none', width: '33.33%', textAlign: 'center', fontSize: '11pt' }}>
+                <div style={{ fontStyle: 'italic' }}>5S Champion</div>
+                <div style={{ fontWeight: 'bold' }}>(Ký, ghi rõ họ tên)</div>
+                <div style={{ marginTop: '18mm' }}>&nbsp;</div>
+              </td>
+              <td style={{ border: 'none', width: '33.33%', textAlign: 'center', fontSize: '11pt' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '10pt', textTransform: 'uppercase' }}>
+                  Trưởng {khoaLabel}
+                </div>
+                <div style={{ fontWeight: 'bold' }}>(Ký, ghi rõ họ tên)</div>
+                <div style={{ marginTop: '18mm' }}>&nbsp;</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div className="pa-footer-note">
+          Phiếu được tạo tự động bởi Bộ công cụ đánh giá 5S – Bệnh viện Đa khoa Thái Bình – Ngày in:{' '}
+          {ngayThangNamStr()}
+        </div>
       </div>
     </>
   )

@@ -286,8 +286,6 @@ export default function TaiKhoan() {
     }
   }
 
-  console.log("rows", form);
-
   return (
     <div>
       <PageHeader

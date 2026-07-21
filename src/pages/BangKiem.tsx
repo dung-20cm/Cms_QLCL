@@ -160,7 +160,9 @@ export default function BangKiem() {
     if (configTypes.length === 0) return;
     const valid = configTypes.some((v) => v.id === vitriTypeId);
     if (vitriTypeId === "" || !valid) {
-      const tatCa = configTypes.find((v) => v.ten_vitri === TAT_CA_VI_TRI_LABEL);
+      const tatCa = configTypes.find(
+        (v) => v.ten_vitri === TAT_CA_VI_TRI_LABEL,
+      );
       setVitriTypeId((tatCa ?? configTypes[0]).id);
       setViTriChiTietIds([]);
       setViTriChiTiet("");
@@ -332,7 +334,7 @@ export default function BangKiem() {
             />
           </Field>
           <Field
-            label={`Vị trí đánh giá (chọn → bảng kiểm tự đổi)${khoaId !== "" && hasConfig ? " — theo cấu hình khoa" : ""}`}
+            label={`Vị trí đánh giá ${khoaId !== "" && hasConfig ? "" : ""}`}
           >
             <select
               className={inputCls}
@@ -351,7 +353,7 @@ export default function BangKiem() {
           </Field>
           {vitriTypeId !== "" &&
           (maByType.get(Number(vitriTypeId))?.length ?? 0) > 0 ? (
-            <Field label="Vị trí chi tiết (chọn 1 hoặc nhiều — theo cấu hình)">
+            <Field label="Vị trí chi tiết">
               <select
                 multiple
                 className={`${inputCls} h-auto min-h-9 py-1`}
@@ -399,9 +401,7 @@ export default function BangKiem() {
               placeholder="— Chọn người đánh giá —"
             />
           </Field>
-          <Field
-            label={`Đợt đánh giá${dotList.length > 0 ? " (các đợt đang mở)" : ""}`}
-          >
+          <Field label={`Đợt đánh giá${dotList.length > 0 ? "" : ""}`}>
             <select
               className={inputCls}
               value={dot}

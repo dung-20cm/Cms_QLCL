@@ -33,6 +33,17 @@ const S_META: Record<string, { name: string; color: string }> = {
 }
 const S_IDS = ['S1', 'S2', 'S3', 'S4', 'S5']
 
+// ≥80% luôn tô xanh (đạt tốt), <60% luôn tô đỏ (chưa đạt) — khoảng giữa dùng
+// đúng màu đặc trưng của nhóm S đó, khớp cách tô màu file mẫu (getColor2).
+function sTierColor(pct: number, base: string): string {
+  return pct >= 80 ? '#1D9E75' : pct >= 60 ? base : '#E24B4A'
+}
+// Màu theo mức % tổng (không gắn với 1 nhóm S cụ thể) — khớp thang màu đã
+// dùng ở bảng xếp hạng khoa (đỏ <60 · vàng <75 · xanh dương <90 · xanh lá ≥90)
+function pctTierColor(pct: number): string {
+  return pct >= 90 ? '#1D9E75' : pct >= 75 ? '#185FA5' : pct >= 60 ? '#BA7517' : '#E24B4A'
+}
+
 type SortMode = 'newest' | 'oldest' | 'rank_desc' | 'rank_asc' | 'khoa'
 
 export default function XuHuong() {
@@ -315,7 +326,7 @@ export default function XuHuong() {
               {S_IDS.map((id, i) => {
                 const meta = S_META[id]
                 const pct = sAvg[id] ?? 0
-                const color = pct >= 80 ? '#1D9E75' : pct >= 60 ? meta.color : '#E24B4A'
+                const color = sTierColor(pct, meta.color)
                 return (
                   <div
                     key={id}
@@ -465,13 +476,13 @@ export default function XuHuong() {
             <div className="max-h-[480px] overflow-auto">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 bg-white dark:bg-gray-900">
-                  <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                  <tr className="whitespace-nowrap border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                     <th className="px-5 py-3 font-medium">Hạng</th>
                     <th className="px-4 py-3 font-medium">Ngày</th>
                     <th className="px-4 py-3 font-medium">Khoa / Phòng</th>
                     <th className="px-4 py-3 font-medium">Vị trí</th>
                     {S_IDS.map((id) => (
-                      <th key={id} className="px-3 py-3 text-center font-medium" style={{ color: S_META[id].color }}>{id}</th>
+                      <th key={id} className="px-2 py-3 text-center font-bold" style={{ color: S_META[id].color }}>{id}</th>
                     ))}
                     <th className="px-4 py-3 font-medium">Tổng</th>
                     <th className="px-4 py-3 font-medium">Xếp loại</th>
@@ -480,20 +491,35 @@ export default function XuHuong() {
                 <tbody>
                   {displayRows.map((r) => {
                     const byS = Object.fromEntries((r.sScores || []).map((s) => [s.id, s.pct]))
+                    const totalColor = pctTierColor(r.pct)
                     return (
-                      <tr key={r.id} className="border-b border-gray-50 last:border-0 dark:border-gray-800">
+                      <tr key={r.id} className="whitespace-nowrap border-b border-gray-50 last:border-0 dark:border-gray-800">
                         <td className="px-5 py-2.5 text-gray-400">#{rankMap.get(r.id)}</td>
                         <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{new Date(r.ngay_danh_gia).toLocaleDateString('vi-VN')}</td>
                         <td className="px-4 py-2.5 font-medium text-gray-700 dark:text-gray-200">{r.khoa?.ten_khoa}</td>
                         <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{r.vitri_type?.ten_vitri}</td>
-                        {S_IDS.map((id) => (
-                          <td key={id} className="px-3 py-2.5 text-center text-gray-500 dark:text-gray-400">
-                            {byS[id] != null ? `${byS[id]}%` : '—'}
-                          </td>
-                        ))}
-                        <td className="px-4 py-2.5 font-semibold text-gray-700 dark:text-gray-200">{r.pct}%</td>
+                        {S_IDS.map((id) => {
+                          const pct = byS[id]
+                          if (pct == null) {
+                            return (
+                              <td key={id} className="px-2 py-2.5 text-center text-gray-300 dark:text-gray-700">—</td>
+                            )
+                          }
+                          const c = sTierColor(pct, S_META[id].color)
+                          return (
+                            <td key={id} className="px-2 py-2.5">
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="text-xs font-bold" style={{ color: c }}>{pct}%</span>
+                                <div className="h-1 w-10 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: c }} />
+                                </div>
+                              </div>
+                            </td>
+                          )
+                        })}
+                        <td className="px-4 py-2.5 font-bold" style={{ color: totalColor }}>{r.pct}%</td>
                         <td className="px-4 py-2.5">
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${toneBadgeClass[toneFromPct(r.pct)]}`}>{r.xep_loai}</span>
+                          <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${toneBadgeClass[toneFromPct(r.pct)]}`}>{r.xep_loai}</span>
                         </td>
                       </tr>
                     )

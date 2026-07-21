@@ -526,7 +526,7 @@ export default function Dashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
+                    <tr className="whitespace-nowrap border-b border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800">
                       <th className="pb-3 pr-4 font-medium">Khoa/Phòng</th>
                       <th className="pb-3 pr-4 font-medium">Vị trí</th>
                       <th className="pb-3 pr-4 font-medium">Ngày</th>
@@ -538,7 +538,7 @@ export default function Dashboard() {
                     {sorted.slice(0, 5).map((r) => (
                       <tr
                         key={r.id}
-                        className="border-b border-gray-50 last:border-0 dark:border-gray-800"
+                        className="whitespace-nowrap border-b border-gray-50 last:border-0 dark:border-gray-800"
                       >
                         <td className="py-3 pr-4 font-medium text-gray-700 dark:text-gray-200">
                           {r.khoa?.ten_khoa || r.khoa_id}
@@ -549,12 +549,18 @@ export default function Dashboard() {
                         <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">
                           {r.ngay_danh_gia}
                         </td>
-                        <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">
+                        <td
+                          className="py-3 pr-4 font-semibold"
+                          style={{
+                            color:
+                              r.pct >= 90 ? "#1D9E75" : r.pct >= 75 ? "#185FA5" : r.pct >= 60 ? "#BA7517" : "#E24B4A",
+                          }}
+                        >
                           {r.pct}%
                         </td>
                         <td className="py-3">
                           <span
-                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${toneBadgeClass[toneFromPct(r.pct)]}`}
+                            className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${toneBadgeClass[toneFromPct(r.pct)]}`}
                           >
                             {r.xep_loai}
                           </span>
