@@ -30,8 +30,18 @@ export class ApiError extends Error {
   }
 }
 
+// Mặc định lấy đúng HOST đang mở trang trên trình duyệt (localhost, IP LAN máy
+// thật, IP máy ảo...) rồi ghép cổng 8080 -- áp dụng được cho MỌI máy/IP truy
+// cập mà không cần sửa tay .env mỗi khi đổi máy chạy. VITE_API_BASE_URL trong
+// .env (nếu có set) vẫn được ưu tiên trước, dùng khi backend nằm khác host
+// với frontend.
+const defaultApiBase =
+  typeof window !== "undefined"
+    ? `${window.location.protocol}//${window.location.hostname}:8080`
+    : "http://localhost:8080";
+
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8080",
+  baseURL: import.meta.env.VITE_API_BASE_URL || defaultApiBase,
   timeout: 20000,
 });
 
