@@ -337,6 +337,16 @@ export default function LichDanhGia() {
     [users],
   );
 
+  // Danh sách cán bộ hiện trong 2 select "— Tất cả cán bộ —" (lịch tuần + bảng
+  // theo dõi tuân thủ) -- đúng theo comment ở isAdmin phía trên: Admin thấy toàn
+  // bộ (thu hẹp lại theo "Khoa/Phòng cán bộ" nếu đang lọc), các role khác CHỈ
+  // thấy cán bộ cùng khoa/phòng của mình, không phải toàn bộ user hệ thống.
+  const canBoOptions = useMemo(() => {
+    if (!isAdmin) return users.filter((u) => u.khoa_id === currentUser?.khoa_id);
+    if (filterKhoaCanBo === "") return users;
+    return users.filter((u) => u.khoa_id === Number(filterKhoaCanBo));
+  }, [users, isAdmin, filterKhoaCanBo, currentUser?.khoa_id]);
+
   // Danh sách "Người phụ trách" được phép tích chọn:
   // - Trưởng khoa/phòng (không phải Admin): LUÔN LÀ CÁN BỘ CỦA CHÍNH PHÒNG/KHOA
   //   NGƯỜI ĐANG TẠO LỊCH (người phân công), KHÔNG PHẢI của khoa được chọn để
@@ -841,7 +851,7 @@ export default function LichDanhGia() {
                 onChange={(e) => setFilterNguoi(e.target.value)}
               >
                 <option value="">— Tất cả cán bộ —</option>
-                {users.map((u) => (
+                {canBoOptions.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.email || u.username}
                   </option>
@@ -1082,7 +1092,7 @@ export default function LichDanhGia() {
                 onChange={(e) => setTtNguoi(e.target.value)}
               >
                 <option value="">— Tất cả cán bộ —</option>
-                {users.map((u) => (
+                {canBoOptions.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.email || u.username}
                   </option>

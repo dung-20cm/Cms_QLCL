@@ -83,3 +83,15 @@ body {
 .animate-rise-in {
   animation: rise-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* ── Chuyển trang (đăng nhập/đăng xuất, chuyển route) mượt hơn thay vì đổi nội
+   dung đột ngột -- xem PageTransition.tsx (bọc Outlet, remount theo pathname
+   để animation lặp lại mỗi lần chuyển trang) + Login.tsx + AuthLoadingScreen.tsx. */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-page-in {
+  animation: page-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

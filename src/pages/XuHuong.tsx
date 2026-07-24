@@ -447,9 +447,15 @@ export default function XuHuong() {
                         <td className="py-2 pr-3">
                           <div className="flex items-center gap-2">
                             <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                              <div className="h-full rounded-full bg-red-500" style={{ width: `${Math.min(100, (t.fail_count / top10[0].fail_count) * 100)}%` }} />
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${Math.min(100, (t.fail_count / top10[0].fail_count) * 100)}%`,
+                                  background: S_META[t.s_id]?.color,
+                                }}
+                              />
                             </div>
-                            <span className="font-semibold text-red-600 dark:text-red-400">{t.fail_count}</span>
+                            <span className="font-semibold" style={{ color: S_META[t.s_id]?.color }}>{t.fail_count}</span>
                           </div>
                         </td>
                         <td className="py-2 font-medium text-gray-600 dark:text-gray-300">{t.rate_pct}%</td>
@@ -545,13 +551,13 @@ export default function XuHuong() {
         {drillItem && (
           <div>
             <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
-              Tổng <b className="text-red-600 dark:text-red-400">{drillItem.fail_count}</b> lần ✗ trên {drillItem.rate_pct}% lượt đánh giá — theo khoa/phòng:
+              Tổng <b style={{ color: S_META[drillItem.s_id]?.color }}>{drillItem.fail_count}</b> lần ✗ trên {drillItem.rate_pct}% lượt đánh giá — theo khoa/phòng:
             </p>
             <ul className="max-h-72 space-y-1.5 overflow-y-auto">
               {drillItem.by_khoa.map((k) => (
                 <li key={k.khoa} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/50">
                   <span className="text-gray-700 dark:text-gray-200">{k.khoa}</span>
-                  <span className="font-bold text-red-600 dark:text-red-400">{k.count} lần</span>
+                  <span className="font-bold" style={{ color: S_META[drillItem.s_id]?.color }}>{k.count} lần</span>
                 </li>
               ))}
             </ul>

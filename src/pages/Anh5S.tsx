@@ -160,6 +160,19 @@ export default function Anh5S() {
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [fNguoi, setFNguoi] = useState("");
+
+  // Select "Nhân viên" chỉ hiện đúng nhân viên của khoa đang lọc (fKhoa) thay vì
+  // luôn liệt kê toàn bộ user hệ thống -- khi chưa chọn khoa thì vẫn hiện tất cả.
+  const nguoiFilterOptions = useMemo(() => {
+    const list = fKhoa
+      ? users.filter((u) => String(u.khoa_id) === fKhoa)
+      : users;
+    return list.map((u) => ({
+      value: String(u.id),
+      label: u.email || u.username || "—",
+    }));
+  }, [users, fKhoa]);
+
   // Lightbox xem nhiều ảnh cùng 1 lượt gửi -- trượt qua lại bằng react-slick
   const [previewList, setPreviewList] = useState<PhotoGallery[] | null>(null);
   const [previewIndex, setPreviewIndex] = useState(0);
@@ -626,10 +639,7 @@ export default function Anh5S() {
           <SearchableSelect
             value={fNguoi}
             onChange={(v) => setFNguoi(v)}
-            options={users.map((u) => ({
-              value: String(u.id),
-              label: u.email || u.username || "—",
-            }))}
+            options={nguoiFilterOptions}
             placeholder="— Tất cả —"
           />
         </Field>
@@ -1060,14 +1070,16 @@ function Anh5SCard({
   const khoaTen =
     dg?.khoa?.ten_khoa || manual?.khoa?.ten_khoa || `Lượt #${g.list[0].id}`;
   const vitriTen = dg?.vitri_type?.ten_vitri || manual?.vitri_type?.ten_vitri;
+
+  console.log("g.dg", g.dg);
   const nguoiTxt = dg
     ? [
-        dg.nguoi_danh_gia?.username,
-        ...(dg.dong_danh_gia?.map((u) => u.username) || []),
+        dg.nguoi_danh_gia?.email || dg.nguoi_danh_gia?.username,
+        ...(dg.dong_danh_gia?.map((u) => u.email || u.username) || []),
       ]
         .filter(Boolean)
         .join(" · ")
-    : manual?.nguoi_gui?.username;
+    : manual?.nguoi_gui?.email || manual?.nguoi_gui?.username;
 
   return (
     <div
