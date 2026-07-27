@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ClipboardCheck, Percent, Building2, Wrench } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
 import ChartCard from "../components/ui/ChartCard";
@@ -14,7 +14,8 @@ import {
   useKhacPhuc,
   useTodayLich,
 } from "../components/ui/PageShell";
-import type { LichPhanCong } from "../features/qlcl/types";
+import { fetchDanhGiaList } from "../features/qlcl/api";
+import type { DanhGia, LichPhanCong } from "../features/qlcl/types";
 import { toneBadgeClass, toneFromPct } from "../features/qlcl/types";
 
 const TARGET_PCT = 90;
@@ -42,6 +43,29 @@ export default function Dashboard() {
   const danhGia = useDanhGia();
   const khacPhucState = useKhacPhuc();
   const todayLichState = useTodayLich();
+
+  // Khối "Hôm nay" cần đúng số liệu MỚI NHẤT ngay khi vào trang. Cache dùng
+  // chung (useDanhGia) chỉ tự fetch khi status còn 'idle' -- nếu trang khác đã
+  // tải trước đó trong phiên, Dashboard có thể đang hiển thị bản cache cũ
+  // (thiếu lượt vừa lưu vài phút trước). Giống cách trang "Lịch đánh giá" luôn
+  // tự gọi fetchDanhGiaList() riêng mỗi lần vào trang, ở đây gọi thêm 1 lần
+  // fetch độc lập chỉ để tính todayStats -- không đụng tới cache dùng chung
+  // nên các card khác vẫn dùng bản cache mượt như cũ, không nháy trắng cả
+  // trang trong lúc chờ.
+  const [todayRowsLive, setTodayRowsLive] = useState<DanhGia[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchDanhGiaList()
+      .then((res) => {
+        if (!cancelled)
+          setTodayRowsLive(res.rows.filter((r) => r.active !== 0));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const rows = danhGia.rows;
   const khacPhuc = khacPhucState.rows;
   const lichList = todayLichState.rows;
@@ -66,18 +90,19 @@ export default function Dashboard() {
   const todayStr = fmt(today);
   const thisMonth = todayStr.slice(0, 7);
 
-  // ── KPI hôm nay ──
+  // ── KPI hôm nay -- ưu tiên bản fetch riêng (todayRowsLive, luôn mới nhất);
+  // trong lúc chờ fetch đó trả về thì tạm dùng bản cache dùng chung (rows) để
+  // không hiện trống/0 ngay từ khung hình đầu tiên. ──
   const todayStats = useMemo(() => {
-    const todayRows = rows.filter((r) => r.ngay_danh_gia === todayStr);
+    const source = todayRowsLive ?? rows;
+    const todayRows = source.filter((r) => r.ngay_danh_gia === todayStr);
     const dat = todayRows.filter((r) => r.pct >= 70).length;
     const chuaDat = todayRows.length - dat;
     const avg = todayRows.length
-      ? Math.round(
-          todayRows.reduce((s, r) => s + r.pct, 0) / todayRows.length,
-        )
+      ? Math.round(todayRows.reduce((s, r) => s + r.pct, 0) / todayRows.length)
       : 0;
     return { luot: todayRows.length, dat, chuaDat, avg };
-  }, [rows, todayStr]);
+  }, [todayRowsLive, rows, todayStr]);
 
   // ── Thống kê tổng quan (luỹ kế toàn viện) ──
   const stats = useMemo(() => {
@@ -123,7 +148,16 @@ export default function Dashboard() {
       dPct = prevAvg ? Math.round(((curAvg - prevAvg) / prevAvg) * 10) / 10 : 0;
     }
 
-    return { n, avg, excellent, totalKhoa: byKhoa.size, openKP, dLuot, dPct, byKhoa };
+    return {
+      n,
+      avg,
+      excellent,
+      totalKhoa: byKhoa.size,
+      openKP,
+      dLuot,
+      dPct,
+      byKhoa,
+    };
   }, [rows, khacPhuc]);
 
   // ── Xếp hạng khoa theo tháng này ──
@@ -225,6 +259,42 @@ export default function Dashboard() {
         (!l.vitri_type_id || r.vitri_type_id === l.vitri_type_id),
     );
 
+  // Gom các lịch cùng khoa + vị trí (chỉ khác người đánh giá) thành 1 dòng --
+  // trước đây mỗi người đánh giá phụ trách cùng 1 khoa/vị trí tạo ra 1 bản ghi
+  // lich_phan_cong riêng nên khoa đó bị lặp lại nhiều lần trong danh sách.
+  const lichHomNayGrouped = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        khoa_id: number;
+        vitri_type_id: number | null;
+        khoaTen: string;
+        vitriTen?: string;
+        nguoiSet: Set<string>;
+        sample: LichPhanCong;
+      }
+    >();
+    for (const l of lichHomNay) {
+      const key = `${l.khoa_id}-${l.vitri_type_id ?? "all"}`;
+      const cur = map.get(key) || {
+        khoa_id: l.khoa_id,
+        vitri_type_id: l.vitri_type_id,
+        khoaTen: l.khoa?.ten_khoa || String(l.khoa_id),
+        vitriTen: l.vitri_type?.ten_vitri,
+        nguoiSet: new Set<string>(),
+        sample: l,
+      };
+      const ten = l.nguoi_thuc_hien?.email || l.nguoi_thuc_hien?.username;
+      if (ten) cur.nguoiSet.add(ten);
+      map.set(key, cur);
+    }
+    return [...map.values()].map((g) => ({
+      ...g,
+      nguoiList: [...g.nguoiSet],
+      done: isLichDone(g.sample),
+    }));
+  }, [lichHomNay, rows, todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const statCards = [
     {
       label: "Tổng lượt đánh giá",
@@ -242,7 +312,8 @@ export default function Dashboard() {
       label: "Khoa/Phòng đạt Xuất sắc",
       value: (
         <>
-          <CountUp value={stats.excellent} /> / <CountUp value={stats.totalKhoa} />
+          <CountUp value={stats.excellent} /> /{" "}
+          <CountUp value={stats.totalKhoa} />
         </>
       ),
       change: 0,
@@ -306,7 +377,11 @@ export default function Dashboard() {
               </div>
               <div className="text-center">
                 <p className="text-3xl font-extrabold">
-                  {todayStats.luot ? <CountUp value={todayStats.avg} suffix="%" /> : "–"}
+                  {todayStats.luot ? (
+                    <CountUp value={todayStats.avg} suffix="%" />
+                  ) : (
+                    "–"
+                  )}
                 </p>
                 <p className="text-xs opacity-80">Điểm TB hôm nay</p>
               </div>
@@ -334,56 +409,64 @@ export default function Dashboard() {
             <ChartCard title="Mục tiêu tỷ lệ đạt" subtitle="Toàn viện — luỹ kế">
               <TargetChart value={stats.avg} />
               <p className="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
-                Mục tiêu {TARGET_PCT}% · Hiện tại <CountUp value={stats.avg} suffix="%" />
+                Mục tiêu {TARGET_PCT}% · Hiện tại{" "}
+                <CountUp value={stats.avg} suffix="%" />
               </p>
             </ChartCard>
           </div>
 
           {/* ── Lịch hôm nay · Khoa cần chú ý · Điểm S1-S5 tháng này ── */}
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <ChartCard title="📅 Lịch đánh giá hôm nay" subtitle={`${lichHomNay.length} buổi`}>
-              {lichHomNay.length === 0 ? (
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <ChartCard
+              title="📅 Lịch đánh giá hôm nay"
+              // subtitle={`${lichHomNayGrouped.length} buổi`}
+            >
+              {lichHomNayGrouped.length === 0 ? (
                 <p className="text-sm text-gray-400">Không có lịch hôm nay</p>
               ) : (
-                <ul className="max-h-[220px] space-y-2 overflow-y-auto">
-                  {lichHomNay.map((l) => {
-                    const done = isLichDone(l);
-                    return (
-                      <li
-                        key={l.id}
-                        className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
-                          done
-                            ? "bg-emerald-50 dark:bg-emerald-500/10"
-                            : "bg-amber-50 dark:bg-amber-500/10"
-                        }`}
-                      >
-                        <span className="font-medium text-gray-700 dark:text-gray-200">
-                          {l.khoa?.ten_khoa}
-                          {l.vitri_type?.ten_vitri && (
+                <div className="max-h-[260px] overflow-y-auto">
+                  {lichHomNayGrouped.map((g) => (
+                    <div
+                      key={`${g.khoa_id}-${g.vitri_type_id ?? "all"}`}
+                      className="flex items-center gap-2 border-b border-gray-100 py-2 text-xs last:border-0 dark:border-gray-800"
+                    >
+                      <span className="text-base">{g.done ? "✅" : "⏳"}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-semibold text-[#1B3A5C] dark:text-gray-100">
+                          {g.khoaTen}
+                          {g.vitriTen && (
                             <span className="ml-1 font-normal text-gray-400">
-                              · {l.vitri_type.ten_vitri}
+                              · {g.vitriTen}
                             </span>
                           )}
-                        </span>
-                        <span
-                          className={`text-xs font-semibold ${
-                            done
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : "text-amber-600 dark:text-amber-400"
-                          }`}
-                        >
-                          {done ? "✅ Đã xong" : "⏳ Chưa"}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                        </p>
+                        <p className="truncate text-[10.5px] text-gray-400">
+                          {g.nguoiList.length ? g.nguoiList.join(" · ") : "—"}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          g.done
+                            ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+                            : "bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400"
+                        }`}
+                      >
+                        {g.done ? "Đã xong" : "Chưa"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
             </ChartCard>
 
-            <ChartCard title="🔴 Khoa cần chú ý" subtitle="Điểm thấp nhất tháng này">
+            <ChartCard
+              title="🔴 Khoa cần chú ý"
+              subtitle="Điểm thấp nhất tháng này"
+            >
               {topLow.length === 0 ? (
-                <p className="text-sm text-gray-400">Chưa có dữ liệu tháng này</p>
+                <p className="text-sm text-gray-400">
+                  Chưa có dữ liệu tháng này
+                </p>
               ) : (
                 <ul className="max-h-[220px] space-y-2 overflow-y-auto">
                   {topLow.map((k, i) => (
@@ -399,7 +482,11 @@ export default function Dashboard() {
                         className="font-bold"
                         style={{
                           color:
-                            k.avg < 60 ? "#E24B4A" : k.avg < 75 ? "#BA7517" : "#185FA5",
+                            k.avg < 60
+                              ? "#E24B4A"
+                              : k.avg < 75
+                                ? "#BA7517"
+                                : "#185FA5",
                         }}
                       >
                         {k.avg}%
@@ -410,16 +497,26 @@ export default function Dashboard() {
               )}
             </ChartCard>
 
+            {/* <ChartCard title="Tỷ lệ đạt theo nhóm 5S" subtitle="Tháng này">
+              <GroupBreakdownChart data={groupData} />
+            </ChartCard> */}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-1">
             <ChartCard title="Tỷ lệ đạt theo nhóm 5S" subtitle="Tháng này">
               <GroupBreakdownChart data={groupData} />
             </ChartCard>
           </div>
-
           {/* ── Top 5 khoa tốt / cần cải thiện ── */}
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <ChartCard title="🏆 Top 5 khoa tốt nhất tháng" subtitle={`Tháng ${thisMonth.slice(5)}/${thisMonth.slice(0, 4)}`}>
+            <ChartCard
+              title="🏆 Top 5 khoa tốt nhất tháng"
+              subtitle={`Tháng ${thisMonth.slice(5)}/${thisMonth.slice(0, 4)}`}
+            >
               {topGood.length === 0 ? (
-                <p className="text-sm text-gray-400">Chưa có dữ liệu tháng này</p>
+                <p className="text-sm text-gray-400">
+                  Chưa có dữ liệu tháng này
+                </p>
               ) : (
                 <ul className="space-y-2">
                   {topGood.map((k, i) => (
@@ -439,9 +536,14 @@ export default function Dashboard() {
                 </ul>
               )}
             </ChartCard>
-            <ChartCard title="⚠ Top 5 khoa cần cải thiện" subtitle={`Tháng ${thisMonth.slice(5)}/${thisMonth.slice(0, 4)}`}>
+            <ChartCard
+              title="⚠ Top 5 khoa cần cải thiện"
+              subtitle={`Tháng ${thisMonth.slice(5)}/${thisMonth.slice(0, 4)}`}
+            >
               {topBad.length === 0 ? (
-                <p className="text-sm text-gray-400">Chưa có dữ liệu tháng này</p>
+                <p className="text-sm text-gray-400">
+                  Chưa có dữ liệu tháng này
+                </p>
               ) : (
                 <ul className="space-y-2">
                   {topBad.map((k, i) => (
@@ -463,7 +565,10 @@ export default function Dashboard() {
 
           {/* ── Bảng xếp hạng khoa đầy đủ + Kết quả gần đây ── */}
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <ChartCard title="🏅 Bảng xếp hạng khoa — tháng này" subtitle="Sắp xếp theo tỷ lệ đạt trung bình">
+            <ChartCard
+              title="🏅 Bảng xếp hạng khoa — tháng này"
+              subtitle="Sắp xếp theo tỷ lệ đạt trung bình"
+            >
               <div className="max-h-[340px] overflow-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="sticky top-0 bg-white dark:bg-gray-900">
@@ -477,13 +582,19 @@ export default function Dashboard() {
                   <tbody>
                     {khoaThangNay.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="py-6 text-center text-gray-400">
+                        <td
+                          colSpan={4}
+                          className="py-6 text-center text-gray-400"
+                        >
                           Chưa có dữ liệu tháng này
                         </td>
                       </tr>
                     )}
                     {khoaThangNay.map((k, i) => (
-                      <tr key={k.khoa_id} className="border-b border-gray-50 last:border-0 dark:border-gray-800">
+                      <tr
+                        key={k.khoa_id}
+                        className="border-b border-gray-50 last:border-0 dark:border-gray-800"
+                      >
                         <td className="py-2 pr-3">
                           <span
                             className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
@@ -499,8 +610,12 @@ export default function Dashboard() {
                             {i + 1}
                           </span>
                         </td>
-                        <td className="py-2 pr-3 font-medium text-gray-700 dark:text-gray-200">{k.khoa}</td>
-                        <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">{k.n}</td>
+                        <td className="py-2 pr-3 font-medium text-gray-700 dark:text-gray-200">
+                          {k.khoa}
+                        </td>
+                        <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">
+                          {k.n}
+                        </td>
                         <td className="py-2">
                           <div className="flex items-center gap-2">
                             <div className="h-1.5 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
@@ -508,11 +623,20 @@ export default function Dashboard() {
                                 className="h-full rounded-full"
                                 style={{
                                   width: `${k.avg}%`,
-                                  background: k.avg >= 90 ? "#1D9E75" : k.avg >= 75 ? "#185FA5" : k.avg >= 60 ? "#BA7517" : "#E24B4A",
+                                  background:
+                                    k.avg >= 90
+                                      ? "#1D9E75"
+                                      : k.avg >= 75
+                                        ? "#185FA5"
+                                        : k.avg >= 60
+                                          ? "#BA7517"
+                                          : "#E24B4A",
                                 }}
                               />
                             </div>
-                            <span className="font-semibold text-gray-700 dark:text-gray-200">{k.avg}%</span>
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">
+                              {k.avg}%
+                            </span>
                           </div>
                         </td>
                       </tr>
@@ -522,7 +646,10 @@ export default function Dashboard() {
               </div>
             </ChartCard>
 
-            <ChartCard title="Kết quả gần đây" subtitle="5 lượt đánh giá mới nhất">
+            <ChartCard
+              title="Kết quả gần đây"
+              subtitle="5 lượt đánh giá mới nhất"
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
@@ -553,7 +680,13 @@ export default function Dashboard() {
                           className="py-3 pr-4 font-semibold"
                           style={{
                             color:
-                              r.pct >= 90 ? "#1D9E75" : r.pct >= 75 ? "#185FA5" : r.pct >= 60 ? "#BA7517" : "#E24B4A",
+                              r.pct >= 90
+                                ? "#1D9E75"
+                                : r.pct >= 75
+                                  ? "#185FA5"
+                                  : r.pct >= 60
+                                    ? "#BA7517"
+                                    : "#E24B4A",
                           }}
                         >
                           {r.pct}%

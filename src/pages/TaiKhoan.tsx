@@ -124,6 +124,9 @@ export default function TaiKhoan() {
   // filter
   const [fName, setFName] = useState("");
   const [fRole, setFRole] = useState("");
+  // Chỉ Admin (không scoped theo 1 khoa cố định) mới cần lọc theo khoa/phòng
+  // -- Trưởng khoa vào trang này đã luôn chỉ thấy đúng khoa của mình rồi.
+  const [fKhoa, setFKhoa] = useState<number | "">("");
 
   // modal form
   const [form, setForm] = useState<FormState | null>(null);
@@ -171,9 +174,10 @@ export default function TaiKhoan() {
         )
           return false;
         if (fRole && u.user_role?.role?.slug !== fRole) return false;
+        if (fKhoa !== "" && u.khoa_id !== fKhoa) return false;
         return true;
       }),
-    [rows, fName, fRole],
+    [rows, fName, fRole, fKhoa],
   );
 
   const {
@@ -183,7 +187,7 @@ export default function TaiKhoan() {
     pageItems: pagedRows,
     pageSize,
     totalItems,
-  } = usePagination(filtered, { resetKey: `${fName}|${fRole}` });
+  } = usePagination(filtered, { resetKey: `${fName}|${fRole}|${fKhoa}` });
 
   // Trưởng khoa không được gán role admin/phong-qlcl (khớp guard ở backend)
   const assignableRoles = useMemo(
@@ -343,11 +347,25 @@ export default function TaiKhoan() {
             ))}
           </select>
         </Field>
+        {!isScopedManager && (
+          <Field label="Khoa / Phòng" className="min-w-48">
+            <SearchableSelect
+              value={fKhoa}
+              onChange={(v) => setFKhoa(v)}
+              options={khoaList.map((k) => ({
+                value: k.id,
+                label: k.ten_khoa,
+              }))}
+              placeholder="— Tất cả —"
+            />
+          </Field>
+        )}
         <button
           className={btnSecondary}
           onClick={() => {
             setFName("");
             setFRole("");
+            setFKhoa("");
           }}
         >
           <RotateCcw size={15} /> Xoá lọc
@@ -554,30 +572,34 @@ export default function TaiKhoan() {
                 </p>
               )}
             </Field>
-            <Field label={form.id ? "Mật khẩu *" : "Mật khẩu *"}>
-              <div className="relative">
-                <KeyRound
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  className={`${inputCls} w-full pl-9 ${fieldErrors.password ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
-                  value={form.password}
-                  onChange={(e) => {
-                    setForm({ ...form, password: e.target.value });
-                    setFieldErrors((fe) => ({ ...fe, password: undefined }));
-                  }}
-                  placeholder={form.id ? "••••••" : "Tối thiểu 6 ký tự"}
-                />
-              </div>
-              {fieldErrors.password && (
-                <p className="mt-1 text-[11px] text-red-500">
-                  {fieldErrors.password}
-                </p>
-              )}
-            </Field>
+            {/* Không cho đổi mật khẩu ở modal Sửa -- đã có luồng đổi mật khẩu
+                riêng (xem ChangePasswordModal), nên chỉ hiện ô này khi TẠO MỚI. */}
+            {!form.id && (
+              <Field label="Mật khẩu *">
+                <div className="relative">
+                  <KeyRound
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    className={`${inputCls} w-full pl-9 ${fieldErrors.password ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
+                    value={form.password}
+                    onChange={(e) => {
+                      setForm({ ...form, password: e.target.value });
+                      setFieldErrors((fe) => ({ ...fe, password: undefined }));
+                    }}
+                    placeholder="Tối thiểu 6 ký tự"
+                  />
+                </div>
+                {fieldErrors.password && (
+                  <p className="mt-1 text-[11px] text-red-500">
+                    {fieldErrors.password}
+                  </p>
+                )}
+              </Field>
+            )}
 
             <Field label="Khoa / Phòng *">
               <SearchableSelect
