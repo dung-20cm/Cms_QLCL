@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import SliderRaw from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
@@ -727,7 +728,7 @@ export default function Anh5S() {
       )}
 
       {/* -- Lightbox: truot qua lai nhieu anh cung 1 luot gui bang react-slick -- */}
-      {previewList && preview && (
+      {previewList && preview && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
           onClick={closePreview}
@@ -803,7 +804,8 @@ export default function Anh5S() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* -- Modal them / sua anh -- */}

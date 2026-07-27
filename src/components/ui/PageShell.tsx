@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppDispatch, useAppSelector } from '../../app/hooks'
 import { loadCatalog } from '../../features/qlcl/catalogSlice'
 import { loadDanhGia } from '../../features/qlcl/danhGiaSlice'
@@ -145,7 +146,12 @@ export function Modal({
   wide?: boolean
 }) {
   if (!open) return null
-  return (
+  // Render qua portal thẳng vào document.body -- tránh bị "nhốt" trong các
+  // ancestor có transform (VD .animate-page-in ở PageTransition.tsx dùng
+  // animation-fill-mode: both nên giữ transform sau khi chạy xong), vì
+  // position:fixed sẽ định vị theo ancestor có transform gần nhất thay vì
+  // viewport, khiến modal bị co hẹp trong vùng main thay vì full màn hình.
+  return createPortal(
     <div
       className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={onClose}
@@ -170,7 +176,8 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
