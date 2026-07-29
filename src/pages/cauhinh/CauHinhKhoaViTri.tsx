@@ -13,6 +13,8 @@ import {
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { fetchVitriChiTietList, createUpdateVitriChiTiet, deleteVitriChiTiet } from '../../features/qlcl/api'
 import type { VitriChiTiet } from '../../features/qlcl/types'
+import { useIsViewOnly } from '../../features/auth/usePermission'
+import { useToast } from '../../features/ui/useToast'
 
 // Bỏ tiền tố "1. ", "12. " trong tên vị trí khi dùng làm mã mặc định
 const stripPrefix = (s: string) => s.replace(/^\d+\.\s*/, '')
@@ -43,6 +45,8 @@ function sameDraft(a: Draft, b: Draft): boolean {
 // Mục 1: Cấu hình khoa nào cần kiểm tra vị trí nào (tick local → Lưu tổng 1 lần)
 export default function CauHinhKhoaViTri() {
   const { khoaList, vitriTypes } = useCatalog()
+  const isViewOnly = useIsViewOnly()
+  const toast = useToast()
 
   const [error, setError] = useState<string | null>(null)
   const [khoaId, setKhoaId] = useState<number | ''>('')
@@ -75,7 +79,7 @@ export default function CauHinhKhoaViTri() {
   const serverDraft = useMemo(() => draftFromRows(serverRows), [serverRows])
   const dirty = useMemo(() => !sameDraft(draft, serverDraft), [draft, serverDraft])
   const allTicked = vitriTypes.length > 0 && vitriTypes.every((vt) => draft[vt.id]?.length)
-  const canEdit = khoaId !== '' && !ctLoading
+  const canEdit = khoaId !== '' && !ctLoading && !isViewOnly
 
   function toggleType(vtId: number, tenVitri: string) {
     if (!canEdit) return
@@ -156,8 +160,11 @@ export default function CauHinhKhoaViTri() {
       }
       setSavedMsg(`✓ Đã lưu cấu hình (${created} thêm, ${removed} gỡ)`)
       loadCt()
+      toast.success(`Đã lưu cấu hình khoa – vị trí (${created} thêm, ${removed} gỡ)!`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lưu cấu hình thất bại!')
+      const msg = err instanceof Error ? err.message : 'Lưu cấu hình thất bại!'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -248,33 +255,37 @@ export default function CauHinhKhoaViTri() {
                           className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs text-gray-600 ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700"
                         >
                           {ma}
-                          <button
-                            className="text-gray-300 transition hover:text-red-500"
-                            title="Xoá mã vị trí này"
-                            onClick={() => removeMa(vt.id, ma)}
-                          >
-                            <X size={12} />
-                          </button>
+                          {canEdit && (
+                            <button
+                              className="text-gray-300 transition hover:text-red-500"
+                              title="Xoá mã vị trí này"
+                              onClick={() => removeMa(vt.id, ma)}
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
                         </span>
                       ))}
                     </div>
-                    <div className="mt-2 flex gap-1.5">
-                      <input
-                        className={`${inputCls} h-8 flex-1 text-xs`}
-                        placeholder="Thêm mã: E101, Xe tiêm 2..."
-                        value={addingMa[vt.id] || ''}
-                        onChange={(e) => setAddingMa((p) => ({ ...p, [vt.id]: e.target.value }))}
-                        onKeyDown={(e) => e.key === 'Enter' && addMa(vt.id)}
-                      />
-                      <button
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-white transition hover:bg-brand-600 disabled:opacity-50"
-                        disabled={!(addingMa[vt.id] || '').trim()}
-                        onClick={() => addMa(vt.id)}
-                        title="Thêm mã vị trí"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div className="mt-2 flex gap-1.5">
+                        <input
+                          className={`${inputCls} h-8 flex-1 text-xs`}
+                          placeholder="Thêm mã: E101, Xe tiêm 2..."
+                          value={addingMa[vt.id] || ''}
+                          onChange={(e) => setAddingMa((p) => ({ ...p, [vt.id]: e.target.value }))}
+                          onKeyDown={(e) => e.key === 'Enter' && addMa(vt.id)}
+                        />
+                        <button
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-white transition hover:bg-brand-600 disabled:opacity-50"
+                          disabled={!(addingMa[vt.id] || '').trim()}
+                          onClick={() => addMa(vt.id)}
+                          title="Thêm mã vị trí"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

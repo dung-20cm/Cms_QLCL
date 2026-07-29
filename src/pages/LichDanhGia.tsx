@@ -34,6 +34,7 @@ import type { LichPhanCong, DanhGia, DotDanhGia } from "../features/qlcl/types";
 import { useKhoaViTri } from "../features/qlcl/useKhoaViTri";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { useHasPermission } from "../features/auth/usePermission";
+import { useToast } from "../features/ui/useToast";
 import { PERMISSION } from "../features/auth/permissions";
 import { invalidateTodayLich } from "../features/qlcl/todayLichSlice";
 
@@ -215,6 +216,7 @@ export default function LichDanhGia() {
   const { khoaList, users, vitriTypes } = useCatalog();
   const currentUser = useAppSelector((s) => s.auth.user);
   const dispatch = useAppDispatch();
+  const toast = useToast();
   // Được thêm mới / sửa / xoá lịch (chỉ Admin, Trưởng khoa) — Phòng QLCL/Nhân viên chỉ xem
   const canManage = useHasPermission(PERMISSION.PHAN_CONG_DANH_GIA);
   // Admin thấy toàn bộ cán bộ; các role khác chỉ thấy cán bộ cùng khoa/phòng của mình
@@ -680,8 +682,11 @@ export default function LichDanhGia() {
       // nay" dùng chung (banner + trang Thống kê) là cũ để tự làm mới.
       dispatch(invalidateTodayLich());
       load();
+      toast.success(mEditGroup ? "Đã lưu thay đổi lịch đánh giá!" : "Đã tạo lịch đánh giá mới!");
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Lưu lịch thất bại");
+      const msg = err instanceof Error ? err.message : "Lưu lịch thất bại";
+      setModalError(msg);
+      toast.error(msg);
     } finally {
       setSavingLich(false);
     }
@@ -769,8 +774,11 @@ export default function LichDanhGia() {
       setLichList((prev) => prev.filter((x) => !ids.has(x.id)));
       dispatch(invalidateTodayLich());
       setConfirmDeleteGroup(null);
+      toast.success("Đã xoá lịch đánh giá!");
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Xoá thất bại");
+      const msg = err instanceof Error ? err.message : "Xoá thất bại";
+      setDeleteError(msg);
+      toast.error(msg);
     } finally {
       setDeletingGroup(false);
     }

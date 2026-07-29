@@ -34,6 +34,8 @@ import {
 } from "../features/qlcl/api";
 import type { Anh5sTuan } from "../features/qlcl/types";
 import { useKhoaViTri } from "../features/qlcl/useKhoaViTri";
+import { useIsViewOnly } from "../features/auth/usePermission";
+import { useToast } from "../features/ui/useToast";
 
 // Thứ 2 đầu tuần của 1 ngày bất kỳ
 function mondayOf(d: Date): string {
@@ -64,6 +66,8 @@ function clBadge(cl: string) {
 }
 
 export default function Zalo5S() {
+  const isViewOnly = useIsViewOnly();
+  const toast = useToast();
   const { khoaList } = useCatalog();
   const [records, setRecords] = useState<Anh5sTuan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,8 +176,11 @@ export default function Zalo5S() {
       });
       setModalOpen(false);
       load();
+      toast.success(editing ? "Đã lưu thay đổi ghi nhận ảnh!" : "Đã ghi nhận ảnh mới!");
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Lưu thất bại");
+      const msg = err instanceof Error ? err.message : "Lưu thất bại";
+      setModalError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -295,9 +302,11 @@ export default function Zalo5S() {
               <FileText size={15} />{" "}
               {exporting === "word" ? "Đang xuất..." : "Xuất Word"}
             </button>
-            <button className={btnPrimary} onClick={() => openModal()}>
-              <Plus size={16} /> Ghi nhận ảnh
-            </button>
+            {!isViewOnly && (
+              <button className={btnPrimary} onClick={() => openModal()}>
+                <Plus size={16} /> Ghi nhận ảnh
+              </button>
+            )}
           </>
         }
       />
@@ -451,12 +460,14 @@ export default function Zalo5S() {
                         {r?.ghi_chu}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        <button
-                          onClick={() => openModal(k.id, r)}
-                          className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 transition hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400"
-                        >
-                          {r ? "Sửa" : "Ghi nhận"}
-                        </button>
+                        {!isViewOnly && (
+                          <button
+                            onClick={() => openModal(k.id, r)}
+                            className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 transition hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400"
+                          >
+                            {r ? "Sửa" : "Ghi nhận"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

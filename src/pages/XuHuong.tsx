@@ -135,7 +135,7 @@ export default function XuHuong() {
         },
       },
       theme: { mode },
-      colors: ['#465fff'],
+      colors: ['#034ea2'],
       dataLabels: { enabled: false },
       stroke: { curve: 'smooth', width: 2.5 },
       // markers để tháng có dữ liệu đơn lẻ vẫn hiển thị (không có điểm liền kề để nối line)

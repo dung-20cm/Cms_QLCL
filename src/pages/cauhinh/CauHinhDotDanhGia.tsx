@@ -15,6 +15,8 @@ import {
 } from '../../components/ui/PageShell'
 import { fetchDotDanhGiaList, createUpdateDotDanhGia, deleteDotDanhGia } from '../../features/qlcl/api'
 import type { DotDanhGia } from '../../features/qlcl/types'
+import { useIsViewOnly } from '../../features/auth/usePermission'
+import { useToast } from '../../features/ui/useToast'
 
 interface FormState {
   id?: number
@@ -31,6 +33,8 @@ const fmtDate = (d: string | null) => (d ? d.split('-').reverse().join('/') : '�
 
 // Mục 3: Cấu hình đợt đánh giá (bảng dot_danh_gia) — map.jpg "Cấu hình tạo đợt đánh giá"
 export default function CauHinhDotDanhGia() {
+  const isViewOnly = useIsViewOnly()
+  const toast = useToast()
   const [rows, setRows] = useState<DotDanhGia[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -70,6 +74,7 @@ export default function CauHinhDotDanhGia() {
     setSaving(true)
     setFormError(null)
     try {
+      const wasEdit = !!form.id
       await createUpdateDotDanhGia({
         id: form.id,
         ten_dot: form.ten_dot.trim(),
@@ -80,8 +85,11 @@ export default function CauHinhDotDanhGia() {
       })
       setForm(null)
       load()
+      toast.success(wasEdit ? 'Đã lưu thay đổi đợt đánh giá!' : 'Đã tạo đợt đánh giá mới!')
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Lưu thất bại!')
+      const msg = err instanceof Error ? err.message : 'Lưu thất bại!'
+      setFormError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -91,14 +99,18 @@ export default function CauHinhDotDanhGia() {
   async function toggleTrangThai(r: DotDanhGia) {
     setTogglingId(r.id)
     try {
+      const opening = r.trang_thai !== 'dang-mo'
       await createUpdateDotDanhGia({
         id: r.id,
         ten_dot: r.ten_dot,
-        trang_thai: r.trang_thai === 'dang-mo' ? 'da-dong' : 'dang-mo',
+        trang_thai: opening ? 'dang-mo' : 'da-dong',
       })
       load()
+      toast.success(opening ? 'Đã mở lại đợt đánh giá!' : 'Đã đóng đợt đánh giá!')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không đổi được trạng thái!')
+      const msg = err instanceof Error ? err.message : 'Không đổi được trạng thái!'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setTogglingId(null)
     }
@@ -111,9 +123,12 @@ export default function CauHinhDotDanhGia() {
       await deleteDotDanhGia(deleting.id)
       setDeleting(null)
       load()
+      toast.success('Đã xoá đợt đánh giá!')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Xoá thất bại!')
+      const msg = err instanceof Error ? err.message : 'Xoá thất bại!'
+      setError(msg)
       setDeleting(null)
+      toast.error(msg)
     } finally {
       setDeleteBusy(false)
     }
@@ -126,15 +141,17 @@ export default function CauHinhDotDanhGia() {
         title="Cấu hình đợt đánh giá"
         subtitle="Tạo và quản lý các đợt đánh giá 5S — Bảng kiểm sẽ cho chọn các đợt đang mở"
         actions={
-          <button
-            className={btnPrimary}
-            onClick={() => {
-              setFormError(null)
-              setForm({ ...emptyForm })
-            }}
-          >
-            <Plus size={15} /> Tạo đợt đánh giá
-          </button>
+          !isViewOnly && (
+            <button
+              className={btnPrimary}
+              onClick={() => {
+                setFormError(null)
+                setForm({ ...emptyForm })
+              }}
+            >
+              <Plus size={15} /> Tạo đợt đánh giá
+            </button>
+          )
         }
       />
 
@@ -188,40 +205,42 @@ export default function CauHinhDotDanhGia() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1.5">
-                          <button
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-amber-300 hover:text-amber-500 disabled:opacity-40 dark:border-gray-700"
-                            title={open ? 'Đóng đợt' : 'Mở lại đợt'}
-                            disabled={togglingId === r.id}
-                            onClick={() => toggleTrangThai(r)}
-                          >
-                            {open ? <Lock size={14} /> : <LockOpen size={14} />}
-                          </button>
-                          <button
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:text-brand-500 dark:border-gray-700"
-                            title="Sửa"
-                            onClick={() => {
-                              setFormError(null)
-                              setForm({
-                                id: r.id,
-                                ten_dot: r.ten_dot,
-                                tu_ngay: r.tu_ngay || '',
-                                den_ngay: r.den_ngay || '',
-                                mo_ta: r.mo_ta || '',
-                                trang_thai: r.trang_thai,
-                              })
-                            }}
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 dark:border-gray-700"
-                            title="Xoá"
-                            onClick={() => setDeleting(r)}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                        {!isViewOnly && (
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-amber-300 hover:text-amber-500 disabled:opacity-40 dark:border-gray-700"
+                              title={open ? 'Đóng đợt' : 'Mở lại đợt'}
+                              disabled={togglingId === r.id}
+                              onClick={() => toggleTrangThai(r)}
+                            >
+                              {open ? <Lock size={14} /> : <LockOpen size={14} />}
+                            </button>
+                            <button
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:text-brand-500 dark:border-gray-700"
+                              title="Sửa"
+                              onClick={() => {
+                                setFormError(null)
+                                setForm({
+                                  id: r.id,
+                                  ten_dot: r.ten_dot,
+                                  tu_ngay: r.tu_ngay || '',
+                                  den_ngay: r.den_ngay || '',
+                                  mo_ta: r.mo_ta || '',
+                                  trang_thai: r.trang_thai,
+                                })
+                              }}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 dark:border-gray-700"
+                              title="Xoá"
+                              onClick={() => setDeleting(r)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   )

@@ -2,6 +2,7 @@ import Sidebar from './Sidebar'
 import Header from './Header'
 import TodayLichBanner from './TodayLichBanner'
 import PageTransition from './PageTransition'
+import ToastContainer from '../ui/ToastContainer'
 import { useAppSelector } from '../../app/hooks'
 
 export default function AppLayout() {
@@ -13,6 +14,7 @@ export default function AppLayout() {
     // sang giao diện chính thay vì hiện ra đột ngột.
     <div className="min-h-screen animate-fade-in bg-gray-50 dark:bg-gray-950">
       <Sidebar />
+      <ToastContainer />
       <div
         className={`transition-all duration-200 ${open ? 'ml-64' : 'ml-[84px]'}`}
       >

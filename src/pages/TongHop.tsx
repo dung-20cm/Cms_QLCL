@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Table2, Download, RotateCcw } from "lucide-react";
 import {
   ExcelJS,
@@ -18,13 +18,19 @@ import {
   useCatalog,
   useDanhGia,
 } from "../components/ui/PageShell";
+import { fetchDotDanhGiaList } from "../features/qlcl/api";
 import SearchableSelect from "../components/ui/SearchableSelect";
 import Pagination, { usePagination } from "../components/ui/Pagination";
 import CountUp from "../components/ui/CountUp";
 import { useAppDispatch } from "../app/hooks";
 import { loadDanhGia } from "../features/qlcl/danhGiaSlice";
-import type { DanhGia } from "../features/qlcl/types";
-import { toneBadgeClass, toneFromPct } from "../features/qlcl/types";
+import type { DanhGia, DotDanhGia } from "../features/qlcl/types";
+import {
+  DOT_DANH_GIA_OPTIONS,
+  toneBadgeClass,
+  toneFromPct,
+} from "../features/qlcl/types";
+// import type { DotDanhGia } from "../features/qlcl/types";
 
 type SortKey = "newest" | "oldest" | "rank_desc" | "rank_asc" | "khoa";
 
@@ -43,10 +49,23 @@ export default function TongHop() {
   const [fDot, setFDot] = useState("");
   const [sort, setSort] = useState<SortKey>("newest");
 
-  const dotOptions = useMemo(
-    () => [...new Set(rows.map((r) => r.dot_danh_gia))].sort(),
-    [rows],
-  );
+  // const dotOptions = useMemo(
+  //   () => [...new Set(rows.map((r) => r.dot_danh_gia))].sort(),
+  //   [rows],
+  // );
+
+  const [dotList, setDotList] = useState<DotDanhGia[]>([]);
+  useEffect(() => {
+    fetchDotDanhGiaList({ trang_thai: "dang-mo" })
+      .then((res) => {
+        setDotList(res.rows);
+      })
+      .catch(() => setDotList([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const dotOptions =
+    dotList.length > 0 ? dotList.map((d) => d.ten_dot) : DOT_DANH_GIA_OPTIONS;
 
   const filtered = useMemo(() => {
     const list = rows.filter((r) => {
@@ -83,7 +102,8 @@ export default function TongHop() {
 
   const kpi = useMemo(() => {
     const n = filtered.length;
-    if (!n) return { n: 0, hasData: false, okPct: 0, avg: 0, best: "–", bestAvg: 0 };
+    if (!n)
+      return { n: 0, hasData: false, okPct: 0, avg: 0, best: "–", bestAvg: 0 };
     const ok = filtered.filter((r) => r.pct >= 85).length;
     const avg = Math.round(filtered.reduce((s, r) => s + r.pct, 0) / n);
     const byKhoa = new Map<string, { sum: number; n: number }>();
@@ -158,7 +178,13 @@ export default function TongHop() {
         });
         styleDataRow(row, idx, ["stt", "ngay", "datTong", "pct", "xepLoai"]);
         const color =
-          r.pct >= 90 ? "FF15803D" : r.pct >= 75 ? "FF0369A1" : r.pct >= 60 ? "FFB45309" : "FFDC2626";
+          r.pct >= 90
+            ? "FF15803D"
+            : r.pct >= 75
+              ? "FF0369A1"
+              : r.pct >= 60
+                ? "FFB45309"
+                : "FFDC2626";
         row.getCell("pct").font = { bold: true, color: { argb: color } };
         row.getCell("xepLoai").font = { bold: true, color: { argb: color } };
       });
@@ -171,7 +197,9 @@ export default function TongHop() {
         `tong_hop_5s_${new Date().toISOString().slice(0, 10)}.xlsx`,
       );
     } catch (err) {
-      setExportError(err instanceof Error ? err.message : "Xuất Excel thất bại");
+      setExportError(
+        err instanceof Error ? err.message : "Xuất Excel thất bại",
+      );
     } finally {
       setExportingExcel(false);
     }
@@ -198,11 +226,14 @@ export default function TongHop() {
             onClick={exportExcel}
             disabled={!filtered.length || exportingExcel}
           >
-            <Download size={15} /> {exportingExcel ? "Đang xuất..." : "Xuất Excel"}
+            <Download size={15} />{" "}
+            {exportingExcel ? "Đang xuất..." : "Xuất Excel"}
           </button>
         }
       />
-      {error && <ErrorBanner message={error} onRetry={() => dispatch(loadDanhGia())} />}
+      {error && (
+        <ErrorBanner message={error} onRetry={() => dispatch(loadDanhGia())} />
+      )}
       {exportError && <ErrorBanner message={exportError} />}
 
       {/* ── Bộ lọc ── */}

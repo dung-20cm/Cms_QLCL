@@ -14,6 +14,7 @@ import TienDoKP from "./pages/TienDoKP";
 import BaoCao from "./pages/BaoCao";
 import TaiKhoan from "./pages/TaiKhoan";
 import CauHinhKhoaViTri from "./pages/cauhinh/CauHinhKhoaViTri";
+import CauHinhKhoaPhong from "./pages/cauhinh/CauHinhKhoaPhong";
 import CauHinhViTri from "./pages/cauhinh/CauHinhViTri";
 import CauHinhDotDanhGia from "./pages/cauhinh/CauHinhDotDanhGia";
 import CauHinhTieuChi from "./pages/cauhinh/CauHinhTieuChi";
@@ -144,6 +145,14 @@ function App() {
               element={
                 <RequirePermission slug={PERM_CAU_HINH}>
                   <CauHinhKhoaViTri />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/cau-hinh/khoa-phong"
+              element={
+                <RequirePermission slug={PERM_CAU_HINH}>
+                  <CauHinhKhoaPhong />
                 </RequirePermission>
               }
             />

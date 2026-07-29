@@ -35,7 +35,7 @@ export default function TrendChart({ categories = defaultMonths, series = defaul
         },
       },
       theme: { mode },
-      colors: ['#465fff', '#7592ff'],
+      colors: ['#034ea2', '#499bf3'],
       dataLabels: { enabled: false },
       stroke: { curve: 'smooth', width: 2 },
       fill: {

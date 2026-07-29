@@ -32,6 +32,8 @@ import {
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { invalidateKhacPhuc } from "../features/qlcl/khacPhucSlice";
 import type { KhacPhuc } from "../features/qlcl/types";
+import { useIsViewOnly } from "../features/auth/usePermission";
+import { useToast } from "../features/ui/useToast";
 import { smartSuggestKP, suggestDeadline } from "../features/qlcl/aiSuggestKP";
 import { PERMISSION } from "../features/auth/permissions";
 import { useHasPermission } from "../features/auth/usePermission";
@@ -171,6 +173,8 @@ function emptyForm(): KpForm {
 }
 
 export default function TienDoKP() {
+  const isViewOnly = useIsViewOnly();
+  const toast = useToast();
   const { users, khoaList, vitriTypes } = useCatalog();
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector((s) => s.auth.user);
@@ -363,12 +367,16 @@ export default function TienDoKP() {
         payload.mo_ta_loi = form.moTaLoi;
         payload.ngay_phat_hien = form.ngayPhatHien || null;
       }
+      const wasEdit = !!editingId;
       await createUpdateKhacPhuc(payload);
       closeModal();
       dispatch(invalidateKhacPhuc());
       load();
+      toast.success(wasEdit ? "Đã lưu thay đổi hành động khắc phục!" : "Đã thêm hành động khắc phục mới!");
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Lưu thất bại");
+      const msg = err instanceof Error ? err.message : "Lưu thất bại";
+      setModalError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -389,8 +397,11 @@ export default function TienDoKP() {
       dispatch(invalidateKhacPhuc());
       setConfirmDelete(null);
       load();
+      toast.success("Đã xoá hành động khắc phục!");
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Xoá thất bại");
+      const msg = err instanceof Error ? err.message : "Xoá thất bại";
+      setDeleteError(msg);
+      toast.error(msg);
     } finally {
       setDeleting(false);
     }
@@ -403,9 +414,11 @@ export default function TienDoKP() {
         title="Theo dõi tiến độ khắc phục"
         subtitle="Tổng hợp lỗi phát hiện qua đánh giá — cập nhật tiến độ khắc phục hàng tuần"
         actions={
-          <button className={btnPrimary} onClick={openAdd}>
-            <Plus size={15} /> Thêm hành động KP
-          </button>
+          !isViewOnly && (
+            <button className={btnPrimary} onClick={openAdd}>
+              <Plus size={15} /> Thêm hành động KP
+            </button>
+          )
         }
       />
       {error && <ErrorBanner message={error} onRetry={load} />}
@@ -633,22 +646,24 @@ export default function TienDoKP() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => openEdit(r)}
-                            className="rounded-lg border border-gray-200 p-1.5 text-gray-400 transition hover:border-brand-300 hover:text-brand-600 dark:border-gray-700"
-                            title="Cập nhật tiến độ"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            onClick={() => setConfirmDelete(r)}
-                            className="rounded-lg border border-gray-200 p-1.5 text-gray-400 transition hover:border-red-300 hover:text-red-600 dark:border-gray-700"
-                            title="Xoá hành động"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                        {!isViewOnly && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => openEdit(r)}
+                              className="rounded-lg border border-gray-200 p-1.5 text-gray-400 transition hover:border-brand-300 hover:text-brand-600 dark:border-gray-700"
+                              title="Cập nhật tiến độ"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelete(r)}
+                              className="rounded-lg border border-gray-200 p-1.5 text-gray-400 transition hover:border-red-300 hover:text-red-600 dark:border-gray-700"
+                              title="Xoá hành động"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

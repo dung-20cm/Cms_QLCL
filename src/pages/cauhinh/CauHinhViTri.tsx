@@ -16,10 +16,14 @@ import { fetchVitriTypeList, createUpdateVitriType, deleteVitriType } from '../.
 import type { VitriType } from '../../features/qlcl/types'
 import { useAppDispatch } from '../../app/hooks'
 import { loadCatalog } from '../../features/qlcl/catalogSlice'
+import { useIsViewOnly } from '../../features/auth/usePermission'
+import { useToast } from '../../features/ui/useToast'
 
 // Mục 2: CRUD danh mục vị trí đánh giá (vitri_type)
 export default function CauHinhViTri() {
   const dispatch = useAppDispatch()
+  const isViewOnly = useIsViewOnly()
+  const toast = useToast()
 
   const [vitriTypes, setVitriTypes] = useState<VitriType[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,12 +51,16 @@ export default function CauHinhViTri() {
     setSaving(true)
     setFormError(null)
     try {
+      const wasEdit = !!form.id
       await createUpdateVitriType({ id: form.id, ten_vitri: form.ten_vitri.trim(), thu_tu: form.thu_tu })
       setForm(null)
       load()
       dispatch(loadCatalog()) // refresh cache dùng chung (Bảng kiểm, filter...)
+      toast.success(wasEdit ? 'Đã lưu thay đổi vị trí đánh giá!' : 'Đã thêm vị trí đánh giá mới!')
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Lưu thất bại!')
+      const msg = err instanceof Error ? err.message : 'Lưu thất bại!'
+      setFormError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -66,9 +74,12 @@ export default function CauHinhViTri() {
       setDeleting(null)
       load()
       dispatch(loadCatalog())
+      toast.success('Đã xoá vị trí đánh giá!')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Xoá thất bại!')
+      const msg = err instanceof Error ? err.message : 'Xoá thất bại!'
+      setError(msg)
       setDeleting(null)
+      toast.error(msg)
     } finally {
       setDeleteBusy(false)
     }
@@ -81,15 +92,17 @@ export default function CauHinhViTri() {
         title="Quản lý vị trí đánh giá"
         subtitle="Danh mục các loại vị trí kiểm tra 5S — mỗi vị trí có bộ tiêu chí (bảng kiểm) riêng"
         actions={
-          <button
-            className={btnPrimary}
-            onClick={() => {
-              setFormError(null)
-              setForm({ ten_vitri: '', thu_tu: (vitriTypes.at(-1)?.thu_tu ?? 0) + 1 })
-            }}
-          >
-            <Plus size={15} /> Thêm vị trí đánh giá
-          </button>
+          !isViewOnly && (
+            <button
+              className={btnPrimary}
+              onClick={() => {
+                setFormError(null)
+                setForm({ ten_vitri: '', thu_tu: (vitriTypes.at(-1)?.thu_tu ?? 0) + 1 })
+              }}
+            >
+              <Plus size={15} /> Thêm vị trí đánh giá
+            </button>
+          )
         }
       />
 
@@ -115,25 +128,27 @@ export default function CauHinhViTri() {
                   <td className="px-4 py-3 text-gray-400">{vt.thu_tu}</td>
                   <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-200">{vt.ten_vitri}</td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1.5">
-                      <button
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:text-brand-500 dark:border-gray-700"
-                        title="Sửa"
-                        onClick={() => {
-                          setFormError(null)
-                          setForm({ id: vt.id, ten_vitri: vt.ten_vitri, thu_tu: vt.thu_tu })
-                        }}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 dark:border-gray-700"
-                        title="Xoá"
-                        onClick={() => setDeleting(vt)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    {!isViewOnly && (
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:text-brand-500 dark:border-gray-700"
+                          title="Sửa"
+                          onClick={() => {
+                            setFormError(null)
+                            setForm({ id: vt.id, ten_vitri: vt.ten_vitri, thu_tu: vt.thu_tu })
+                          }}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 dark:border-gray-700"
+                          title="Xoá"
+                          onClick={() => setDeleting(vt)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

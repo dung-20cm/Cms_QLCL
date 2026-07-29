@@ -67,15 +67,20 @@ export const PERM_XEM_ANH_5S = [
   PERMISSION.QUAN_LY_ANH_5S_TAT_CA_KHOA,
 ] as const
 
-// Cấu hình hệ thống: Admin
+// Cấu hình hệ thống: Admin (thêm/sửa/xoá) + Lãnh đạo (chỉ xem, giữ
+// XEM_TOAN_QUYEN_BAO_CAO_LICH -- các nút thêm/sửa/xoá trong từng trang con vẫn
+// tự ẩn với Lãnh đạo qua useIsViewOnly()).
 export const PERM_CAU_HINH = [
   PERMISSION.CAU_HINH_DOT_DANH_GIA,
   PERMISSION.CAU_HINH_PHONG_KHOA_KIEM_TRA,
+  PERMISSION.XEM_TOAN_QUYEN_BAO_CAO_LICH,
 ] as const
 
-// Quản lý tài khoản: Admin (tạo TK, phân quyền), Trưởng khoa (tạo TK nhân viên khoa mình)
+// Quản lý tài khoản: Admin (tạo TK, phân quyền), Trưởng khoa (tạo TK nhân viên
+// khoa mình), Lãnh đạo (chỉ xem danh sách, không tạo/sửa/xoá được).
 export const PERM_QUAN_LY_TAI_KHOAN = [
   PERMISSION.TAO_TAI_KHOAN,
   PERMISSION.PHAN_QUYEN_TAI_KHOAN,
   PERMISSION.TAO_TAI_KHOAN_NHAN_VIEN,
+  PERMISSION.XEM_TOAN_QUYEN_BAO_CAO_LICH,
 ] as const

@@ -14,6 +14,7 @@ import {
   Users,
   ChevronDown,
   Building2,
+  Layers,
   MapPin,
   CalendarRange,
   ListChecks,
@@ -107,7 +108,8 @@ const navItems: NavItem[] = [
     icon: Settings,
     permission: PERM_CAU_HINH,
     children: [
-      { to: "/cau-hinh/khoa-vitri", label: "Khoa – vị trí", icon: Building2 },
+      { to: "/cau-hinh/khoa-phong", label: "Khoa / phòng", icon: Building2 },
+      { to: "/cau-hinh/khoa-vitri", label: "Khoa – vị trí", icon: Layers },
       { to: "/cau-hinh/vi-tri", label: "Vị trí đánh giá", icon: MapPin },
       {
         to: "/cau-hinh/dot-danh-gia",
@@ -119,11 +121,13 @@ const navItems: NavItem[] = [
   },
 ];
 
+// Sidebar dùng nền navy cố định (không đổi theo dark/light) nên màu chữ/icon
+// cũng cố định theo tông trắng trong suốt -- không dùng dark: variant ở đây.
 const linkCls = (isActive: boolean, open: boolean) =>
   `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
     isActive
-      ? "bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
-      : "text-gray-600 hover:translate-x-0.5 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+      ? "bg-white/15 text-white shadow-sm"
+      : "text-white/65 hover:translate-x-0.5 hover:bg-white/10 hover:text-white"
   } ${!open ? "justify-center" : ""}`;
 
 export default function Sidebar() {
@@ -145,27 +149,31 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-gray-200 bg-white transition-all duration-200 dark:border-gray-800 dark:bg-gray-900 ${
+      className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-gradient-to-r from-[#1B3A5C] to-[#185FA5] shadow-lg transition-all duration-200 ${
         open ? "w-64" : "w-[84px]"
       }`}
     >
-      <div className="flex h-16 items-center gap-2 border-b border-gray-100 px-5 dark:border-gray-800">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
-          5S
-        </div>
+      <div
+        className={`flex h-16 items-center gap-2.5 border-b border-white/10 px-5 ${!open ? "justify-center px-0" : ""}`}
+      >
+        <img
+          src="/logobenhvien.png"
+          alt="Bệnh viện Đa khoa Thái Bình"
+          className="h-10 w-10 shrink-0 object-contain"
+        />
         {open && (
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+          <div className="min-w-0 leading-tight">
+            <p className="truncate text-sm font-semibold text-white">
               Bộ công cụ đánh giá 5S
             </p>
-            <p className="text-xs text-gray-400">Bệnh viện Đa khoa Thái Bình</p>
+            <p className="truncate text-xs text-white/60">Bệnh viện Đa khoa Thái Bình</p>
           </div>
         )}
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <p
-          className={`mb-2 px-2 text-xs font-medium uppercase tracking-wide text-gray-400 ${
+          className={`mb-2 px-2 text-xs font-medium uppercase tracking-wide text-white/40 ${
             !open && "text-center"
           }`}
         >
@@ -204,7 +212,7 @@ export default function Sidebar() {
                     )}
                   </button>
                   {isExpanded && open && (
-                    <ul className="animate-slide-down mt-1 space-y-0.5 border-l border-gray-100 pl-4 ml-5 dark:border-gray-800">
+                    <ul className="animate-slide-down mt-1 space-y-0.5 border-l border-white/15 pl-4 ml-5">
                       {item.children.map((c) => {
                         const CIcon = c.icon;
                         return (
@@ -214,8 +222,8 @@ export default function Sidebar() {
                               className={({ isActive }) =>
                                 `flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
                                   isActive
-                                    ? "bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
-                                    : "text-gray-500 hover:translate-x-0.5 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                                    ? "bg-white/15 text-white"
+                                    : "text-white/55 hover:translate-x-0.5 hover:bg-white/10 hover:text-white"
                                 }`
                               }
                             >

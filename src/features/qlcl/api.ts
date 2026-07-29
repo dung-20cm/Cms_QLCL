@@ -48,7 +48,10 @@ async function getList<T>(
 }
 
 // -- Danh muc --
-export const fetchKhoaList = () => getList<Khoa>("khoa");
+// active='all' de lay ca khoa da an (active=0) khi quan ly (CauHinhKhoaPhong) --
+// mac dinh (khong truyen) BE chi tra khoa dang active=1 (dung o moi noi khac trong app).
+export const fetchKhoaList = (params?: { active?: "all" }) =>
+  getList<Khoa>("khoa", params);
 export const fetchVitriTypeList = () => getList<VitriType>("vitri-type");
 export const fetchChecklistItems = (vitri_type_id?: number) =>
   getList<ChecklistItem>("checklist-item", { vitri_type_id });
@@ -98,6 +101,24 @@ export async function createUpdateVitriType(payload: {
 
 export async function deleteVitriType(id: number): Promise<void> {
   await apiClient.post(`/api/vitri-type/delete-vitri-type/${id}`);
+}
+
+// -- Cau hinh: khoa/phong (CRUD -- Admin) --
+export async function createUpdateKhoa(payload: {
+  id?: number;
+  ten_khoa: string;
+  nhom?: string | null;
+  active?: number;
+}): Promise<Khoa> {
+  const res = await apiClient.post<Envelope<Khoa>>(
+    "/api/khoa/create-update-khoa",
+    payload,
+  );
+  return res.data.data;
+}
+
+export async function deleteKhoa(id: number): Promise<void> {
+  await apiClient.post(`/api/khoa/delete-khoa/${id}`);
 }
 
 // -- Cau hinh: tieu chi bang kiem (checklist_item -- Admin) --

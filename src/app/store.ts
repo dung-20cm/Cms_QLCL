@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import uiReducer from '../features/ui/uiSlice'
+import toastReducer from '../features/ui/toastSlice'
 import themeReducer from '../features/theme/themeSlice'
 import authReducer from '../features/auth/authSlice'
 import catalogReducer from '../features/qlcl/catalogSlice'
@@ -10,6 +11,7 @@ import todayLichReducer from '../features/qlcl/todayLichSlice'
 export const store = configureStore({
   reducer: {
     ui: uiReducer,
+    toast: toastReducer,
     theme: themeReducer,
     auth: authReducer,
     catalog: catalogReducer,

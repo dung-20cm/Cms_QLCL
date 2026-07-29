@@ -26,6 +26,8 @@ import {
   deleteChecklistItem,
 } from "../../features/qlcl/api";
 import type { ChecklistItem } from "../../features/qlcl/types";
+import { useIsViewOnly } from "../../features/auth/usePermission";
+import { useToast } from "../../features/ui/useToast";
 
 // 5 nhom S co dinh - dong bo mau voi Bang kiem / du lieu seed (checklistItem.data.json)
 const S_GROUPS = [
@@ -57,6 +59,8 @@ const TAT_CA_VI_TRI_LABEL = "Tất cả vị trí";
 // mau/tong hop, dung de tham khao khi cau hinh cac vi tri khac.
 export default function CauHinhTieuChi() {
   const { vitriTypes, status: catalogStatus } = useCatalog();
+  const isViewOnly = useIsViewOnly();
+  const toast = useToast();
 
   const [selectedVitriId, setSelectedVitriId] = useState<number | "">("");
   const [items, setItems] = useState<ChecklistItem[]>([]);
@@ -177,10 +181,14 @@ export default function CauHinhTieuChi() {
           thu_tu: form.thu_tu,
         });
       }
+      const wasEdit = !!form.id;
       setForm(null);
       load();
+      toast.success(wasEdit ? "Đã lưu thay đổi tiêu chí!" : "Đã thêm tiêu chí mới!");
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Lưu thất bại!");
+      const msg = err instanceof Error ? err.message : "Lưu thất bại!";
+      setFormError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -194,8 +202,11 @@ export default function CauHinhTieuChi() {
       await deleteChecklistItem(deleting.id);
       setDeleting(null);
       load();
+      toast.success("Đã xoá tiêu chí!");
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Xóa thất bại!");
+      const msg = err instanceof Error ? err.message : "Xóa thất bại!";
+      setDeleteError(msg);
+      toast.error(msg);
     } finally {
       setDeleteBusy(false);
     }
@@ -266,14 +277,16 @@ export default function CauHinhTieuChi() {
                     {g.items.length} tiêu chí
                   </span>
                 </div>
-                <button
-                  className="flex h-7 shrink-0 items-center gap-1 rounded-lg bg-white/80 px-2.5 text-xs font-medium transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{ color: g.color }}
-                  disabled={selectedVitriId === ""}
-                  onClick={() => openAdd(g)}
-                >
-                  <Plus size={13} /> Thêm mới
-                </button>
+                {!isViewOnly && (
+                  <button
+                    className="flex h-7 shrink-0 items-center gap-1 rounded-lg bg-white/80 px-2.5 text-xs font-medium transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ color: g.color }}
+                    disabled={selectedVitriId === ""}
+                    onClick={() => openAdd(g)}
+                  >
+                    <Plus size={13} /> Thêm mới
+                  </button>
+                )}
               </div>
               {g.items.length === 0 ? (
                 <div className="px-4 py-6 text-center text-xs text-gray-400">
@@ -298,25 +311,27 @@ export default function CauHinhTieuChi() {
                           {c.tc}
                         </p>
                       </div>
-                      <div className="flex shrink-0 gap-1.5 pt-0.5">
-                        <button
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:text-brand-500 dark:border-gray-700"
-                          title="Sửa"
-                          onClick={() => openEdit(c)}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 dark:border-gray-700"
-                          title="Xóa"
-                          onClick={() => {
-                            setDeleteError(null);
-                            setDeleting(c);
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                      {!isViewOnly && (
+                        <div className="flex shrink-0 gap-1.5 pt-0.5">
+                          <button
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:text-brand-500 dark:border-gray-700"
+                            title="Sửa"
+                            onClick={() => openEdit(c)}
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 dark:border-gray-700"
+                            title="Xóa"
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeleting(c);
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>

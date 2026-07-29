@@ -55,6 +55,8 @@ import {
   toneFromPct,
   KET_QUA_ANH_OPTIONS,
 } from "../features/qlcl/types";
+import { useIsViewOnly } from "../features/auth/usePermission";
+import { useToast } from "../features/ui/useToast";
 import {
   exportAnh5SPpt,
   type Anh5SPptRecord,
@@ -145,6 +147,8 @@ function SliderArrow({
 }
 
 export default function Anh5S() {
+  const isViewOnly = useIsViewOnly();
+  const toast = useToast();
   const { khoaList, vitriTypes, users } = useCatalog();
   const user = useAppSelector((s) => s.auth.user);
   // Danh sách khắc phục (cache dùng chung) -- chỉ dùng để tra tiêu chí KHÔNG
@@ -478,11 +482,15 @@ export default function Anh5S() {
         }
       }
 
+      const wasEdit = !!form.editIds;
       setForm(null);
       setSaveProgress("");
       load();
+      toast.success(wasEdit ? "Đã lưu thay đổi ảnh!" : "Đã thêm ảnh mới!");
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Lưu thất bại!");
+      const msg = err instanceof Error ? err.message : "Lưu thất bại!";
+      setFormError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
       setSaveProgress("");
@@ -501,8 +509,11 @@ export default function Anh5S() {
       if (previewList && previewList.some((p) => deleting.ids.includes(p.id)))
         closePreview();
       load();
+      toast.success("Đã xoá ảnh!");
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Xoá thất bại!");
+      const msg = err instanceof Error ? err.message : "Xoá thất bại!";
+      setDeleteError(msg);
+      toast.error(msg);
     } finally {
       setDeleteBusy(false);
     }
@@ -562,9 +573,11 @@ export default function Anh5S() {
               <FileBarChart size={15} />{" "}
               {exporting ? "Đang xuất..." : "Xuất PPTX"}
             </button>
-            <button className={btnPrimary} onClick={openAdd}>
-              <Plus size={15} /> Thêm ảnh
-            </button>
+            {!isViewOnly && (
+              <button className={btnPrimary} onClick={openAdd}>
+                <Plus size={15} /> Thêm ảnh
+              </button>
+            )}
           </div>
         }
       />
@@ -718,6 +731,7 @@ export default function Anh5S() {
                       onDeletePhoto={(id) =>
                         setDeleting({ ids: [id], label: "ảnh này" })
                       }
+                      isViewOnly={isViewOnly}
                     />
                   ))}
                 </div>
@@ -793,14 +807,16 @@ export default function Anh5S() {
                 >
                   <Download size={13} /> Mở ảnh gốc
                 </a>
-                <button
-                  onClick={() =>
-                    setDeleting({ ids: [preview.id], label: "ảnh này" })
-                  }
-                  className="inline-flex items-center gap-1 rounded-lg bg-red-500/80 px-3 py-1.5 text-xs text-white hover:bg-red-500"
-                >
-                  <Trash2 size={13} /> Xoá ảnh
-                </button>
+                {!isViewOnly && (
+                  <button
+                    onClick={() =>
+                      setDeleting({ ids: [preview.id], label: "ảnh này" })
+                    }
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-500/80 px-3 py-1.5 text-xs text-white hover:bg-red-500"
+                  >
+                    <Trash2 size={13} /> Xoá ảnh
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1048,6 +1064,7 @@ function Anh5SCard({
   onDeleteGroup,
   onOpenPreview,
   onDeletePhoto,
+  isViewOnly,
 }: {
   g: {
     key: string;
@@ -1063,6 +1080,7 @@ function Anh5SCard({
   onDeleteGroup: () => void;
   onOpenPreview: (index: number) => void;
   onDeletePhoto: (id: number) => void;
+  isViewOnly: boolean;
 }) {
   const dg = g.dg;
   const manual = g.manual;
@@ -1107,20 +1125,24 @@ function Anh5SCard({
           >
             {pct}% {tagLabel}
           </span>
-          <button
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:text-brand-500 dark:border-gray-700"
-            title="Sửa lượt này"
-            onClick={onEdit}
-          >
-            <Pencil size={13} />
-          </button>
-          <button
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 dark:border-gray-700"
-            title="Xoá cả lượt này"
-            onClick={onDeleteGroup}
-          >
-            <Trash2 size={13} />
-          </button>
+          {!isViewOnly && (
+            <>
+              <button
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:text-brand-500 dark:border-gray-700"
+                title="Sửa lượt này"
+                onClick={onEdit}
+              >
+                <Pencil size={13} />
+              </button>
+              <button
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 dark:border-gray-700"
+                title="Xoá cả lượt này"
+                onClick={onDeleteGroup}
+              >
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1175,13 +1197,15 @@ function Anh5SCard({
             <span className="pointer-events-none absolute bottom-0.5 right-0.5 rounded bg-black/60 px-1 text-[9px] text-white">
               {pIdx + 1}/{g.list.length}
             </span>
-            <button
-              title="Xoá ảnh này"
-              onClick={() => onDeletePhoto(p.id)}
-              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition hover:bg-red-500 group-hover:opacity-100"
-            >
-              <X size={11} />
-            </button>
+            {!isViewOnly && (
+              <button
+                title="Xoá ảnh này"
+                onClick={() => onDeletePhoto(p.id)}
+                className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition hover:bg-red-500 group-hover:opacity-100"
+              >
+                <X size={11} />
+              </button>
+            )}
           </div>
         ))}
       </div>

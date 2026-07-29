@@ -26,7 +26,7 @@ export default function TargetChart({ value = 0 }: TargetChartProps) {
         },
       },
       theme: { mode },
-      colors: ['#465fff'],
+      colors: ['#034ea2'],
       plotOptions: {
         radialBar: {
           hollow: { size: '65%' },

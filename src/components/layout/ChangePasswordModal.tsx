@@ -3,6 +3,7 @@ import { Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import { useAppDispatch } from '../../app/hooks'
 import { changePassword } from '../../features/auth/authSlice'
 import { Modal, Field, inputCls, btnPrimary, btnSecondary } from '../ui/PageShell'
+import { useToast } from '../../features/ui/useToast'
 
 interface Props {
   open: boolean
@@ -13,6 +14,7 @@ const emptyForm = { oldPassword: '', newPassword: '', confirmPassword: '' }
 
 export default function ChangePasswordModal({ open, onClose }: Props) {
   const dispatch = useAppDispatch()
+  const toast = useToast()
   const [form, setForm] = useState(emptyForm)
   const [showOld, setShowOld] = useState(false)
   const [showNew, setShowNew] = useState(false)
@@ -67,12 +69,15 @@ export default function ChangePasswordModal({ open, onClose }: Props) {
         changePassword({ old_password: form.oldPassword, new_password: form.newPassword }),
       ).unwrap()
       setSuccess(true)
+      toast.success('Đổi mật khẩu thành công!')
       setTimeout(() => {
         reset()
         onClose()
       }, 1200)
     } catch (err) {
-      setError(typeof err === 'string' ? err : 'Đổi mật khẩu thất bại. Vui lòng thử lại!')
+      const msg = typeof err === 'string' ? err : 'Đổi mật khẩu thất bại. Vui lòng thử lại!'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setSubmitting(false)
     }

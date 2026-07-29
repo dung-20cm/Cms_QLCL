@@ -40,6 +40,7 @@ import {
   toneBadgeClass,
 } from "../features/qlcl/types";
 import { useKhoaViTri } from "../features/qlcl/useKhoaViTri";
+import { useToast } from "../features/ui/useToast";
 
 type KetQua = 0 | 1 | null;
 
@@ -82,6 +83,7 @@ export default function BangKiem() {
     status: catalogStatus,
     error: catalogError,
   } = useCatalog();
+  const toast = useToast();
   const user = useAppSelector((s) => s.auth.user);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -299,9 +301,9 @@ export default function BangKiem() {
         }
       }
     } catch (err) {
-      setSaveError(
-        err instanceof Error ? err.message : "Lưu thất bại, vui lòng thử lại!",
-      );
+      const msg = err instanceof Error ? err.message : "Lưu thất bại, vui lòng thử lại!";
+      setSaveError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }

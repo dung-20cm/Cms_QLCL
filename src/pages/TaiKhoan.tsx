@@ -33,10 +33,11 @@ import {
 import type { Role, UserFull } from "../features/qlcl/types";
 import { useAppSelector } from "../app/hooks";
 import { PERMISSION } from "../features/auth/permissions";
-import { useHasPermission } from "../features/auth/usePermission";
+import { useHasPermission, useIsViewOnly } from "../features/auth/usePermission";
+import { useToast } from "../features/ui/useToast";
 
 // Role mà Trưởng khoa KHÔNG được phép gán (khớp assertRoleAllowedForScopedManager ở backend)
-const ROLE_SLUGS_ONLY_ADMIN_CAN_ASSIGN = ["admin", "phong-qlcl"];
+const ROLE_SLUGS_ONLY_ADMIN_CAN_ASSIGN = ["admin", "phong-qlcl", "lanhdao"];
 
 const roleBadge: Record<string, string> = {
   admin:
@@ -47,6 +48,8 @@ const roleBadge: Record<string, string> = {
     "bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20",
   "nhan-vien":
     "bg-gray-100 text-gray-600 ring-1 ring-gray-200 dark:bg-gray-500/10 dark:text-gray-400 dark:ring-gray-500/20",
+  lanhdao:
+    "bg-rose-50 text-rose-700 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:ring-rose-500/20",
 };
 
 interface FormState {
@@ -111,10 +114,19 @@ function validateForm(f: FormState): FormErrors {
 export default function TaiKhoan() {
   const { khoaList } = useCatalog();
   const currentUser = useAppSelector((s) => s.auth.user);
-  // Trang này chỉ Admin (TAO_TAI_KHOAN) và Trưởng khoa (TAO_TAI_KHOAN_NHAN_VIEN) truy cập được
-  // (xem PERM_QUAN_LY_TAI_KHOAN trong App.tsx) — không có TAO_TAI_KHOAN nghĩa là Trưởng khoa,
-  // chỉ được CRUD tài khoản trong khoa/phòng của chính mình.
-  const isScopedManager = !useHasPermission(PERMISSION.TAO_TAI_KHOAN);
+  // Trang này giờ có 3 đối tượng truy cập (xem PERM_QUAN_LY_TAI_KHOAN trong
+  // App.tsx): Admin (TAO_TAI_KHOAN, toàn quyền mọi khoa), Trưởng khoa
+  // (TAO_TAI_KHOAN_NHAN_VIEN, chỉ CRUD trong khoa/phòng mình), và Lãnh đạo
+  // (XEM_TOAN_QUYEN_BAO_CAO_LICH, chỉ xem mọi khoa — không CRUD).
+  // LƯU Ý: Admin trong sơ đồ phân quyền giữ HỢP của mọi role (xem
+  // seedRolePermission.js) nên Admin CŨNG giữ TAO_TAI_KHOAN_NHAN_VIEN --
+  // không thể chỉ check "có quyền này" để suy ra Trưởng khoa, phải loại trừ
+  // thêm trường hợp có luôn TAO_TAI_KHOAN (Admin) mới đúng là Trưởng khoa.
+  const isScopedManager =
+    useHasPermission(PERMISSION.TAO_TAI_KHOAN_NHAN_VIEN) &&
+    !useHasPermission(PERMISSION.TAO_TAI_KHOAN);
+  const isViewOnly = useIsViewOnly();
+  const toast = useToast();
 
   const [rows, setRows] = useState<UserFull[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -264,12 +276,14 @@ export default function TaiKhoan() {
         role_id: Number(form.role_id),
         status: form.status,
       });
+      const wasEdit = !!form.id;
       setForm(null);
       load();
+      toast.success(wasEdit ? "Đã lưu thay đổi tài khoản!" : "Đã tạo tài khoản mới!");
     } catch (err) {
-      setFormError(
-        err instanceof Error ? err.message : "Lưu thất bại, vui lòng thử lại!",
-      );
+      const msg = err instanceof Error ? err.message : "Lưu thất bại, vui lòng thử lại!";
+      setFormError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -282,9 +296,12 @@ export default function TaiKhoan() {
       await deleteUser(deleting.id);
       setDeleting(null);
       load();
+      toast.success("Đã xoá tài khoản!");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Xoá thất bại!");
+      const msg = err instanceof Error ? err.message : "Xoá thất bại!";
+      setError(msg);
       setDeleting(null);
+      toast.error(msg);
     } finally {
       setDeleteBusy(false);
     }
@@ -297,9 +314,11 @@ export default function TaiKhoan() {
         title="Quản lý tài khoản"
         subtitle="Tạo tài khoản, phân quyền và quản lý người dùng hệ thống 5S (theo sơ đồ phân quyền)"
         actions={
-          <button className={btnPrimary} onClick={openCreate}>
-            <Plus size={15} /> Tạo tài khoản
-          </button>
+          !isViewOnly && (
+            <button className={btnPrimary} onClick={openCreate}>
+              <Plus size={15} /> Tạo tài khoản
+            </button>
+          )
         }
       />
 
@@ -453,27 +472,29 @@ export default function TaiKhoan() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1.5">
-                          <button
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:text-brand-500 dark:border-gray-700"
-                            title="Sửa / phân quyền"
-                            onClick={() => openEdit(u)}
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700"
-                            title={
-                              isSelf
-                                ? "Không thể tự xoá tài khoản đang đăng nhập"
-                                : "Xoá tài khoản"
-                            }
-                            disabled={isSelf}
-                            onClick={() => setDeleting(u)}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                        {!isViewOnly && (
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:text-brand-500 dark:border-gray-700"
+                              title="Sửa / phân quyền"
+                              onClick={() => openEdit(u)}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-red-300 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700"
+                              title={
+                                isSelf
+                                  ? "Không thể tự xoá tài khoản đang đăng nhập"
+                                  : "Xoá tài khoản"
+                              }
+                              disabled={isSelf}
+                              onClick={() => setDeleting(u)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

@@ -4,18 +4,22 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Outfit", system-ui, "Segoe UI", Roboto, sans-serif;
-  --color-brand-25: #f2f7ff;
-  --color-brand-50: #ecf3ff;
-  --color-brand-100: #dde9ff;
-  --color-brand-200: #c2d6ff;
-  --color-brand-300: #9cb9ff;
-  --color-brand-400: #7592ff;
-  --color-brand-500: #465fff;
-  --color-brand-600: #3641f5;
-  --color-brand-700: #2a31d8;
-  --color-brand-800: #252dae;
-  --color-brand-900: #262e89;
+  --font-sans: "Be Vietnam Pro", system-ui, "Segoe UI", Roboto, sans-serif;
+  /* Bảng màu brand lấy đúng theo màu xanh logo bệnh viện (#034ea2, đo trực
+     tiếp từ public/logobenhvien.png) -- brand-500 = màu logo, các bậc còn lại
+     nội suy cùng tông (hue ~211°) để mọi nút/badge "primary" trong app đồng
+     bộ với logo mới. */
+  --color-brand-25: #f2f7fd;
+  --color-brand-50: #e4effc;
+  --color-brand-100: #c3ddf9;
+  --color-brand-200: #89bdf5;
+  --color-brand-300: #499bf3;
+  --color-brand-400: #0a74e6;
+  --color-brand-500: #034ea2;
+  --color-brand-600: #034082;
+  --color-brand-700: #033163;
+  --color-brand-800: #042549;
+  --color-brand-900: #041b34;
 }
 
 html, body, #root {
@@ -94,4 +98,15 @@ body {
 
 .animate-page-in {
   animation: page-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Toast thông báo Thành công/Lỗi (ToastContainer.tsx) -- trượt vào từ bên
+   phải + mờ dần hiện ra, tự tắt sau 3s (hẹn giờ xử lý ở component). ── */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }

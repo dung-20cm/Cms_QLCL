@@ -49,7 +49,7 @@ export default function Login() {
       {/* Cột form */}
       <div className="flex w-full flex-col justify-center px-6 py-12 sm:px-10 lg:w-1/2 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-sm">
-          <div className="mb-8 flex items-center gap-2.5">
+          {/* <div className="mb-8 flex items-center gap-2.5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
               5S
             </div>
@@ -61,15 +61,23 @@ export default function Login() {
                 Bệnh viện Đa khoa Thái Bình
               </p>
             </div>
-          </div>
+          </div> */}
 
-          <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">
+          <h1 className="text-2xl text-center font-semibold text-gray-800 dark:text-white">
             Đăng nhập
           </h1>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Nhập tên đăng nhập và mật khẩu để vào hệ thống quản lý chất lượng
-            5S.
+          <p className="mt-2 text-center text-xs text-gray-400">
+            Nhập tên đăng nhập và mật khẩu để vào
           </p>
+          <p className="mt-2 text-center text-xs text-gray-400">
+            hệ thống quản lý chất lượng 5S.
+          </p>
+          {/* <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Nhập tên đăng nhập và mật khẩu để vào
+          </p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            hệ thống quản lý chất lượng 5S.
+          </p> */}
 
           <form className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
             {error && (
@@ -152,8 +160,8 @@ export default function Login() {
           </form>
 
           <p className="mt-8 text-center text-xs text-gray-400">
-            Chưa có tài khoản? Liên hệ Phòng Quản lý chất lượng để được cấp tài
-            khoản.
+            Chưa có tài khoản? Liên hệ trưởng khoa hoặc phòng quản lý chất lương
+            để được cấp tài khoản.
           </p>
         </div>
       </div>
@@ -169,15 +177,17 @@ export default function Login() {
           }}
         />
         <div className="relative z-10 flex flex-col items-center px-10 text-center">
-          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-2xl font-bold text-white backdrop-blur">
-            5S
-          </div>
+          <img
+            src="/logobenhvien.png"
+            alt="Bệnh viện Đa khoa Thái Bình"
+            className="mb-6 h-28 w-28 object-contain drop-shadow-lg"
+          />
           <h2 className="text-2xl font-semibold text-white">
             Bộ công cụ đánh giá điện tử 5S
           </h2>
           <p className="mt-3 max-w-sm text-sm text-white/60">
             Bệnh viện Đa khoa Thái Bình — Phòng Quản lý Chất lượng Theo dõi lịch
-            đánh giá, xu hướng và tiến độ khắc phục 5S toàn viện.
+            đánh giá, xu hướng và tiến độ khắc phục 5S
           </p>
         </div>
       </div>
