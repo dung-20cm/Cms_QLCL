@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -221,6 +221,14 @@ export default function LichDanhGia() {
   const canManage = useHasPermission(PERMISSION.PHAN_CONG_DANH_GIA);
   // Admin thấy toàn bộ cán bộ; các role khác chỉ thấy cán bộ cùng khoa/phòng của mình
   const isAdmin = useHasPermission(PERMISSION.XEM_TOAN_QUYEN_BAO_CAO_LICH);
+  // Phòng QLCL (loại trừ Admin -- Admin cũng giữ XEM_TONG_HOP_TAT_CA_KHOA theo
+  // sơ đồ "Admin = hợp mọi quyền", xem seedRolePermission.js).
+  const isRealAdmin = useHasPermission(PERMISSION.TAO_TAI_KHOAN);
+  const isQlcl =
+    useHasPermission(PERMISSION.XEM_TONG_HOP_TAT_CA_KHOA) && !isRealAdmin;
+  // Admin và Phòng QLCL được dùng ô select "Khoa/Phòng cán bộ" để xem lịch của
+  // TỪNG khoa cụ thể (mặc định chỉ thấy lịch do cán bộ Phòng QLCL phụ trách).
+  const canBrowseKhoaCanBo = isAdmin || isQlcl;
 
   const [lichList, setLichList] = useState<LichPhanCong[]>([]);
   const [danhGiaList, setDanhGiaList] = useState<DanhGia[]>([]);
@@ -332,6 +340,20 @@ export default function LichDanhGia() {
     [khoaList],
   );
 
+  // Admin/Lãnh đạo/Phòng QLCL mặc định CHỈ xem lịch do cán bộ Phòng QLCL phụ
+  // trách (không trộn lẫn nhân viên khoa khác) — chỉ khoá mặc định 1 LẦN khi
+  // vừa tải xong danh mục khoa, không ép lại nếu người dùng đã tự chọn (kể cả
+  // khi họ chủ động chọn lại "Tất cả" hoặc 1 khoa khác qua ô select
+  // "Khoa/Phòng cán bộ").
+  const didLockKhoaCanBoRef = useRef(false);
+  useEffect(() => {
+    if (didLockKhoaCanBoRef.current) return;
+    if (!canBrowseKhoaCanBo) return;
+    if (khoaQlclId == null) return;
+    setFilterKhoaCanBo(khoaQlclId);
+    didLockKhoaCanBoRef.current = true;
+  }, [canBrowseKhoaCanBo, khoaQlclId]);
+
   // Tra khoa_id của 1 user theo id — dùng để lọc lịch theo "khoa của cán bộ phụ
   // trách" (khác với l.khoa_id vốn là khoa ĐƯỢC đánh giá).
   const userKhoaMap = useMemo(
@@ -344,10 +366,11 @@ export default function LichDanhGia() {
   // bộ (thu hẹp lại theo "Khoa/Phòng cán bộ" nếu đang lọc), các role khác CHỈ
   // thấy cán bộ cùng khoa/phòng của mình, không phải toàn bộ user hệ thống.
   const canBoOptions = useMemo(() => {
-    if (!isAdmin) return users.filter((u) => u.khoa_id === currentUser?.khoa_id);
+    if (!canBrowseKhoaCanBo)
+      return users.filter((u) => u.khoa_id === currentUser?.khoa_id);
     if (filterKhoaCanBo === "") return users;
     return users.filter((u) => u.khoa_id === Number(filterKhoaCanBo));
-  }, [users, isAdmin, filterKhoaCanBo, currentUser?.khoa_id]);
+  }, [users, canBrowseKhoaCanBo, filterKhoaCanBo, currentUser?.khoa_id]);
 
   // Danh sách "Người phụ trách" được phép tích chọn:
   // - Trưởng khoa/phòng (không phải Admin): LUÔN LÀ CÁN BỘ CỦA CHÍNH PHÒNG/KHOA
@@ -692,6 +715,17 @@ export default function LichDanhGia() {
     }
   }
 
+  // Khi Admin dùng ô select "Khoa/Phòng cán bộ" để XEM lịch do cán bộ 1 khoa
+  // KHÁC (không phải Phòng QLCL) phụ trách, đây chỉ là chế độ xem tham khảo —
+  // ẩn nút sửa/xoá trên từng thẻ lịch (không cho thao tác từ đây), khớp yêu
+  // cầu "chọn khoa dược thì hiện lịch khoa dược, không hiển thị nút sửa xoá".
+  const canManageThisView =
+    canManage &&
+    (!canBrowseKhoaCanBo ||
+      filterKhoaCanBo === "" ||
+      khoaQlclId == null ||
+      filterKhoaCanBo === khoaQlclId);
+
   // Thẻ hiển thị 1 buổi lịch — dùng chung cho lưới tuần VÀ modal "xem thêm"
   // (đủ lịch của 1 ngày) để không lặp code.
   function renderLichCard(g: LichGroup, d: Date) {
@@ -735,7 +769,7 @@ export default function LichDanhGia() {
                 ? "Đột xuất"
                 : "Một lần"}
           </span>
-          {canManage && (
+          {canManageThisView && (
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => openEditModal(g)}
@@ -840,7 +874,7 @@ export default function LichDanhGia() {
               >
                 Hôm nay
               </button>
-              {isAdmin && (
+              {canBrowseKhoaCanBo && (
                 <div className="ml-auto" style={{ minWidth: 220 }}>
                   <SearchableSelect
                     value={filterKhoaCanBo}
@@ -854,7 +888,7 @@ export default function LichDanhGia() {
                 </div>
               )}
               <select
-                className={`${inputCls} ${isAdmin ? "" : "ml-auto"}`}
+                className={`${inputCls} ${canBrowseKhoaCanBo ? "" : "ml-auto"}`}
                 value={filterNguoi}
                 onChange={(e) => setFilterNguoi(e.target.value)}
               >

@@ -30,7 +30,7 @@ import {
   createUpdateUser,
   deleteUser,
 } from "../features/qlcl/api";
-import type { Role, UserFull } from "../features/qlcl/types";
+import type { Khoa, Role, UserFull } from "../features/qlcl/types";
 import { useAppSelector } from "../app/hooks";
 import { PERMISSION } from "../features/auth/permissions";
 import { useHasPermission, useIsViewOnly } from "../features/auth/usePermission";
@@ -93,6 +93,32 @@ function suggestUsername(fullName: string): string {
     .map((w) => removeVietnameseTones(w).toLowerCase().charAt(0))
     .join("");
   return `${ten}${initials}`.replace(/[^a-z0-9]/g, "");
+}
+
+// Ký tự viết tắt khoa/phòng (chữ cái đầu mỗi từ) để làm hậu tố tên đăng nhập
+// VD: "Phòng Công nghệ thông tin" -> "pcntt"
+function suggestKhoaSuffix(tenKhoa: string): string {
+  return tenKhoa
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => removeVietnameseTones(w).toLowerCase().charAt(0))
+    .join("")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+// Tên đăng nhập gợi ý = họ tên + hậu tố khoa/phòng (nếu đã chọn khoa)
+// VD: "Phan Thu Phương" + "Phòng Công nghệ thông tin" -> "phuongpt-pcntt"
+function buildUsername(
+  hoTen: string,
+  khoaId: number | "",
+  khoaList: Khoa[],
+): string {
+  const base = suggestUsername(hoTen);
+  const khoa = khoaId === "" ? undefined : khoaList.find((k) => k.id === khoaId);
+  if (!base || !khoa) return base;
+  const suffix = suggestKhoaSuffix(khoa.ten_khoa);
+  return suffix ? `${base}-${suffix}` : base;
 }
 
 type FormErrors = Partial<
@@ -555,7 +581,7 @@ export default function TaiKhoan() {
                     if (!f) return f;
                     const next = { ...f, email: hoTen };
                     if (!f.id && !usernameTouched)
-                      next.username = suggestUsername(hoTen);
+                      next.username = buildUsername(hoTen, f.khoa_id, khoaList);
                     return next;
                   });
                   setFieldErrors((fe) => ({ ...fe, email: undefined }));
@@ -626,7 +652,13 @@ export default function TaiKhoan() {
               <SearchableSelect
                 value={form.khoa_id}
                 onChange={(v) => {
-                  setForm({ ...form, khoa_id: v });
+                  setForm((f) => {
+                    if (!f) return f;
+                    const next = { ...f, khoa_id: v };
+                    if (!f.id && !usernameTouched)
+                      next.username = buildUsername(f.email, v, khoaList);
+                    return next;
+                  });
                   setFieldErrors((fe) => ({ ...fe, khoa_id: undefined }));
                 }}
                 options={khoaList.map((k) => ({
