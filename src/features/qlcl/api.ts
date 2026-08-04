@@ -218,6 +218,16 @@ export interface SScore {
   ok: number;
   total: number;
   pct: number;
+  // Chi tiet tung tieu chi trong nhom -- chi co trong response cua get-danh-gia/:id
+  // (getListDanhGia KHONG tra items, chi co so lieu tong hop ok/total/pct).
+  items: {
+    id: number; // DanhGiaChiTiet.id
+    checklist_item_id: number;
+    sub?: string;
+    tc?: string;
+    ket_qua: 0 | 1 | null;
+    ghi_chu: string | null;
+  }[];
 }
 
 export async function fetchDanhGiaById(
@@ -262,6 +272,23 @@ export async function createDanhGia(
     payload,
   );
   return res.data.data;
+}
+
+// Sua 1 phieu danh gia da co -- chi cho phep trong DUNG ngay danh gia (backend
+// tu chan neu qua ngay, xem service/danhGia.service.js updateDanhGia).
+export async function updateDanhGia(
+  id: number,
+  payload: CreateDanhGiaPayload,
+): Promise<DanhGia> {
+  const res = await apiClient.post<Envelope<DanhGia>>(
+    `/api/danh-gia/update-danh-gia/${id}`,
+    payload,
+  );
+  return res.data.data;
+}
+
+export async function deleteDanhGia(id: number): Promise<void> {
+  await apiClient.post(`/api/danh-gia/delete-danh-gia/${id}`);
 }
 
 // -- Khac phuc --
@@ -375,6 +402,7 @@ export const exportBaoCaoZaloWord = (tuan?: string) =>
 
 // -- Photo gallery (anh minh chung danh gia + anh 5S gui doc lap) --
 export const fetchPhotoGalleryList = (params?: {
+  danh_gia_id?: number;
   khoa_id?: number;
   vitri_type_id?: number;
   ket_qua?: string;

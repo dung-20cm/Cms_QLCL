@@ -31,7 +31,8 @@ import {
   deleteUser,
 } from "../features/qlcl/api";
 import type { Khoa, Role, UserFull } from "../features/qlcl/types";
-import { useAppSelector } from "../app/hooks";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
+import { loadCatalog } from "../features/qlcl/catalogSlice";
 import { PERMISSION } from "../features/auth/permissions";
 import { useHasPermission, useIsViewOnly } from "../features/auth/usePermission";
 import { useToast } from "../features/ui/useToast";
@@ -140,6 +141,7 @@ function validateForm(f: FormState): FormErrors {
 export default function TaiKhoan() {
   const { khoaList } = useCatalog();
   const currentUser = useAppSelector((s) => s.auth.user);
+  const dispatch = useAppDispatch();
   // Trang này giờ có 3 đối tượng truy cập (xem PERM_QUAN_LY_TAI_KHOAN trong
   // App.tsx): Admin (TAO_TAI_KHOAN, toàn quyền mọi khoa), Trưởng khoa
   // (TAO_TAI_KHOAN_NHAN_VIEN, chỉ CRUD trong khoa/phòng mình), và Lãnh đạo
@@ -305,6 +307,11 @@ export default function TaiKhoan() {
       const wasEdit = !!form.id;
       setForm(null);
       load();
+      // Danh mục dùng chung (catalog.users) không tự làm mới -- các trang khác
+      // (Lịch đánh giá, Tiến độ KP, Bảng kiểm...) đang cache danh sách cán bộ
+      // này, nếu không ép tải lại thì tài khoản vừa tạo/sửa sẽ không xuất hiện
+      // ở các ô chọn người cho tới khi tải lại cả trang.
+      dispatch(loadCatalog());
       toast.success(wasEdit ? "Đã lưu thay đổi tài khoản!" : "Đã tạo tài khoản mới!");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Lưu thất bại, vui lòng thử lại!";
@@ -322,6 +329,7 @@ export default function TaiKhoan() {
       await deleteUser(deleting.id);
       setDeleting(null);
       load();
+      dispatch(loadCatalog());
       toast.success("Đã xoá tài khoản!");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Xoá thất bại!";

@@ -17,6 +17,7 @@ import {
 import { fetchDanhGiaList } from "../features/qlcl/api";
 import type { DanhGia, LichPhanCong } from "../features/qlcl/types";
 import { toneBadgeClass, toneFromPct } from "../features/qlcl/types";
+import { isLichDone, isLichSelfReview } from "../features/qlcl/lichUtils";
 
 const TARGET_PCT = 90;
 
@@ -251,17 +252,14 @@ export default function Dashboard() {
     });
   }, [lichList, todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isLichDone = (l: LichPhanCong) =>
-    rows.some(
-      (r) =>
-        r.khoa_id === l.khoa_id &&
-        r.ngay_danh_gia === todayStr &&
-        (!l.vitri_type_id || r.vitri_type_id === l.vitri_type_id),
-    );
-
-  // Gom các lịch cùng khoa + vị trí (chỉ khác người đánh giá) thành 1 dòng --
-  // trước đây mỗi người đánh giá phụ trách cùng 1 khoa/vị trí tạo ra 1 bản ghi
-  // lich_phan_cong riêng nên khoa đó bị lặp lại nhiều lần trong danh sách.
+  // Gom các lịch cùng khoa + vị trí + LUỒNG (chỉ khác người đánh giá) thành 1
+  // dòng -- trước đây mỗi người đánh giá phụ trách cùng 1 khoa/vị trí tạo ra 1
+  // bản ghi lich_phan_cong riêng nên khoa đó bị lặp lại nhiều lần trong danh
+  // sách. BẮT BUỘC tách riêng theo luồng (tự đánh giá / Phòng QLCL đánh giá,
+  // xem isLichSelfReview ở lichUtils.ts) -- nếu không, 2 lịch của 2 luồng khác
+  // nhau (VD Phòng QLCL giao cán bộ đi đánh giá 1 khoa, VÀ khoa đó tự giao
+  // nhân viên mình tự đánh giá, trùng vị trí/ngày) sẽ bị gộp chung 1 dòng,
+  // dùng "sample" của người này để báo hoàn thành cho cả người kia.
   const lichHomNayGrouped = useMemo(() => {
     const map = new Map<
       string,
@@ -271,27 +269,30 @@ export default function Dashboard() {
         khoaTen: string;
         vitriTen?: string;
         nguoiSet: Set<string>;
-        sample: LichPhanCong;
+        items: LichPhanCong[];
       }
     >();
     for (const l of lichHomNay) {
-      const key = `${l.khoa_id}-${l.vitri_type_id ?? "all"}`;
+      const key = `${l.khoa_id}-${l.vitri_type_id ?? "all"}-${isLichSelfReview(l) ? "tu" : "qlcl"}`;
       const cur = map.get(key) || {
         khoa_id: l.khoa_id,
         vitri_type_id: l.vitri_type_id,
         khoaTen: l.khoa?.ten_khoa || String(l.khoa_id),
         vitriTen: l.vitri_type?.ten_vitri,
         nguoiSet: new Set<string>(),
-        sample: l,
+        items: [],
       };
       const ten = l.nguoi_thuc_hien?.email || l.nguoi_thuc_hien?.username;
       if (ten) cur.nguoiSet.add(ten);
+      cur.items.push(l);
       map.set(key, cur);
     }
     return [...map.values()].map((g) => ({
       ...g,
       nguoiList: [...g.nguoiSet],
-      done: isLichDone(g.sample),
+      // Hoàn thành nếu BẤT KỲ người nào trong nhóm (cùng luồng) đã nộp đánh
+      // giá đúng khớp lịch của mình -- không chỉ kiểm tra 1 người "đại diện".
+      done: g.items.some((l) => isLichDone(rows, l, todayStr)),
     }));
   }, [lichHomNay, rows, todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
 

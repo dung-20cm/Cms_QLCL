@@ -8,7 +8,7 @@ import { PERM_XEM_LICH } from "../../features/auth/permissions";
 import {
   fmt,
   lichForDate,
-  isLichDone,
+  isGroupDone,
   groupLich,
   tenNguoi,
 } from "../../features/qlcl/lichUtils";
@@ -46,7 +46,7 @@ export default function TodayLichBanner() {
 
   const total = todayGroups.length;
   const doneCount = todayGroups.filter((g) =>
-    isLichDone(danhGiaList, g.items[0], todayStr),
+    isGroupDone(danhGiaList, g, todayStr),
   ).length;
   const statusTxt =
     doneCount === total

@@ -95,6 +95,7 @@ export interface DanhGia {
   dong_danh_gia_ids?: string | null
   ngay_danh_gia: string // "2026-07-02"
   dot_danh_gia: string
+  dot_danh_gia_id: number | null // FK -> dot_danh_gia.id (NULL với lượt cũ chỉ có text)
   so_tieu_chi_dat: number
   so_tieu_chi_tong: number
   pct: number
@@ -104,7 +105,7 @@ export interface DanhGia {
   khoa?: { id: number; ten_khoa: string }
   vitri_type?: { id: number; ten_vitri: string }
   vitri_chi_tiet?: { id: number; ma_vitri: string } | null
-  nguoi_danh_gia?: { id: number; username: string; email: string }
+  nguoi_danh_gia?: { id: number; username: string; email: string; khoa_id: number | null }
   // Danh sách cán bộ đồng đánh giá đã resolve tên (backend trả sẵn từ dong_danh_gia_ids)
   dong_danh_gia?: { id: number; username: string; email: string }[]
   // Tỷ lệ đạt từng nhóm S1..S5 — backend tính sẵn trong get-list-danh-gia (tránh N+1 phía FE)

@@ -55,16 +55,22 @@ const navItems: NavItem[] = [
     permission: PERM_XEM_TONG_HOP,
   },
   {
-    to: "/bang-kiem",
-    label: "Bảng kiểm",
-    icon: ClipboardList,
-    permission: PERM_DANH_GIA,
+    to: "/xu-huong",
+    label: "Xu hướng",
+    icon: TrendingUp,
+    permission: PERM_XEM_TONG_HOP,
   },
   {
     to: "/lich-danh-gia",
     label: "Lịch đánh giá",
     icon: CalendarDays,
     permission: PERM_XEM_LICH,
+  },
+  {
+    to: "/bang-kiem",
+    label: "Bảng kiểm",
+    icon: ClipboardList,
+    permission: PERM_DANH_GIA,
   },
   {
     to: "/zalo-5s",
@@ -77,12 +83,6 @@ const navItems: NavItem[] = [
     to: "/tong-hop",
     label: "Tổng hợp",
     icon: Table2,
-    permission: PERM_XEM_TONG_HOP,
-  },
-  {
-    to: "/xu-huong",
-    label: "Xu hướng",
-    icon: TrendingUp,
     permission: PERM_XEM_TONG_HOP,
   },
   {
@@ -166,7 +166,9 @@ export default function Sidebar() {
             <p className="truncate text-sm font-semibold text-white">
               Bộ công cụ đánh giá 5S
             </p>
-            <p className="truncate text-xs text-white/60">Bệnh viện Đa khoa Thái Bình</p>
+            <p className="truncate text-xs text-white/60">
+              Bệnh viện Đa khoa Thái Bình
+            </p>
           </div>
         )}
       </div>

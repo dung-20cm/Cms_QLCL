@@ -19,6 +19,9 @@ interface MultiSelectProps<T extends string | number> {
   // Các giá trị luôn ở trạng thái đã chọn, không cho bỏ tick/xoá (VD: chính người
   // đang đăng nhập luôn là 1 người đánh giá, không thể tự bỏ mình ra).
   lockedValues?: T[]
+  // Nhãn tóm tắt khi đã chọn ≥1 mục (mặc định "N người đã chọn") -- truyền riêng
+  // khi dùng cho danh sách không phải người (VD: "N vị trí đã chọn").
+  selectedText?: (n: number) => string
 }
 
 // Dropdown chọn nhiều — bấm mở danh sách, tick chọn (✓) từng dòng, gõ để lọc
@@ -33,6 +36,7 @@ export default function MultiSelect<T extends string | number>({
   disabled = false,
   className = '',
   lockedValues = [],
+  selectedText = (n) => `${n} người đã chọn`,
 }: MultiSelectProps<T>) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -100,7 +104,7 @@ export default function MultiSelect<T extends string | number>({
         className={`${inputCls} flex w-full cursor-pointer items-center justify-between gap-2 text-left ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
       >
         <span className={`truncate ${selected.length === 0 ? 'text-gray-400' : 'text-gray-700 dark:text-gray-200'}`}>
-          {selected.length === 0 ? placeholder : `${selected.length} người đã chọn`}
+          {selected.length === 0 ? placeholder : selectedText(selected.length)}
         </span>
         <ChevronDown size={15} className={`shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </div>

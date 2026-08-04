@@ -1,41 +1,41 @@
-import { useEffect, useRef, useState } from 'react'
-import { KeyRound, LogOut, ChevronDown, TriangleAlert } from 'lucide-react'
-import { useAppDispatch, useAppSelector } from '../../app/hooks'
-import { logout } from '../../features/auth/authSlice'
-import { Modal, btnSecondary, btnDanger } from '../ui/PageShell'
-import ChangePasswordModal from './ChangePasswordModal'
+import { useEffect, useRef, useState } from "react";
+import { KeyRound, LogOut, ChevronDown, TriangleAlert } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "../../app/hooks";
+import { logout } from "../../features/auth/authSlice";
+import { Modal, btnSecondary, btnDanger } from "../ui/PageShell";
+import ChangePasswordModal from "./ChangePasswordModal";
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  const last = parts[parts.length - 1] || ''
-  return last.slice(0, 2).toUpperCase()
+  const parts = name.trim().split(/\s+/);
+  const last = parts[parts.length - 1] || "";
+  return last.slice(0, 2).toUpperCase();
 }
 
 export default function UserMenu() {
-  const dispatch = useAppDispatch()
-  const user = useAppSelector((s) => s.auth.user)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [pwModalOpen, setPwModalOpen] = useState(false)
-  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((s) => s.auth.user);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [pwModalOpen, setPwModalOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen) return;
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
+        setMenuOpen(false);
       }
     }
     function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMenuOpen(false)
+      if (e.key === "Escape") setMenuOpen(false);
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('keydown', handleEscape)
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('keydown', handleEscape)
-    }
-  }, [menuOpen])
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [menuOpen]);
 
   return (
     <div className="relative" ref={menuRef}>
@@ -47,17 +47,17 @@ export default function UserMenu() {
         aria-expanded={menuOpen}
       >
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
-          {user ? getInitials(user.username) : '..'}
+          {user ? getInitials(user.username) : ".."}
         </div>
         <div className="hidden text-left sm:block">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            {user?.username ?? 'Đang tải...'}
+            {user?.username ?? "Đang tải..."}
           </p>
           <p className="text-xs text-gray-400">{user?.email}</p>
         </div>
         <ChevronDown
           size={16}
-          className={`hidden text-gray-400 transition-transform duration-200 sm:block ${menuOpen ? 'rotate-180' : ''}`}
+          className={`hidden text-gray-400 transition-transform duration-200 sm:block ${menuOpen ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -70,8 +70,8 @@ export default function UserMenu() {
             type="button"
             role="menuitem"
             onClick={() => {
-              setMenuOpen(false)
-              setPwModalOpen(true)
+              setMenuOpen(false);
+              setPwModalOpen(true);
             }}
             className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-gray-600 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
           >
@@ -82,8 +82,8 @@ export default function UserMenu() {
             type="button"
             role="menuitem"
             onClick={() => {
-              setMenuOpen(false)
-              setLogoutConfirmOpen(true)
+              setMenuOpen(false);
+              setLogoutConfirmOpen(true);
             }}
             className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
           >
@@ -93,7 +93,10 @@ export default function UserMenu() {
         </div>
       )}
 
-      <ChangePasswordModal open={pwModalOpen} onClose={() => setPwModalOpen(false)} />
+      <ChangePasswordModal
+        open={pwModalOpen}
+        onClose={() => setPwModalOpen(false)}
+      />
 
       <Modal
         open={logoutConfirmOpen}
@@ -112,8 +115,8 @@ export default function UserMenu() {
               type="button"
               className={btnDanger}
               onClick={() => {
-                setLogoutConfirmOpen(false)
-                dispatch(logout())
+                setLogoutConfirmOpen(false);
+                dispatch(logout());
               }}
             >
               Đăng xuất
@@ -126,11 +129,14 @@ export default function UserMenu() {
             <TriangleAlert size={20} />
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Bạn có chắc muốn đăng xuất khỏi tài khoản{' '}
-            <span className="font-medium text-gray-800 dark:text-gray-100">{user?.username}</span>?
+            Bạn có chắc muốn đăng xuất khỏi tài khoản{" "}
+            <span className="font-medium text-gray-800 dark:text-gray-100">
+              {user?.email || user?.username}
+            </span>
+            ?
           </p>
         </div>
       </Modal>
     </div>
-  )
+  );
 }

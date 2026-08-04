@@ -42,6 +42,7 @@ import {
   useKhacPhuc,
 } from "../components/ui/PageShell";
 import SearchableSelect from "../components/ui/SearchableSelect";
+import Pagination, { usePagination } from "../components/ui/Pagination";
 import {
   fetchPhotoGalleryList,
   createPhotoGallery,
@@ -316,11 +317,26 @@ export default function Anh5S() {
   const isPassGroup = (g: (typeof groups)[number]) =>
     g.dg ? g.dg.pct >= 70 : g.manual?.ket_qua !== "Chưa đạt";
 
-  // Nhóm các lượt theo NGÀY (giống file mẫu 5S_Dashboard_BVTB_v4: mỗi ngày là
-  // 1 khối riêng, hiện tổng số lượt/ảnh + số đạt/chưa đạt trong ngày đó).
+  // Phân trang theo LƯỢT (10 lượt/trang) -- áp trên `groups` (đã sort mới nhất
+  // trước) rồi mới gom theo ngày để hiển thị, tránh 1 trang chỉ toàn 1 ngày.
+  const {
+    page,
+    setPage,
+    totalPages,
+    pageItems: pagedGroups,
+    pageSize,
+    totalItems,
+  } = usePagination(groups, {
+    pageSize: 10,
+    resetKey: `${fKhoa}|${fLoai}|${fFrom}|${fTo}|${fNguoi}`,
+  });
+
+  // Nhóm các lượt (của TRANG hiện tại) theo NGÀY (giống file mẫu
+  // 5S_Dashboard_BVTB_v4: mỗi ngày là 1 khối riêng, hiện tổng số lượt/ảnh + số
+  // đạt/chưa đạt trong ngày đó).
   const dateGroups = useMemo(() => {
     const map = new Map<string, typeof groups>();
-    for (const g of groups) {
+    for (const g of pagedGroups) {
       const key =
         g.dg?.ngay_danh_gia ||
         g.manual?.ngay_chup ||
@@ -330,7 +346,7 @@ export default function Anh5S() {
       map.get(key)!.push(g);
     }
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [groups]);
+  }, [pagedGroups]);
 
   // -- Them anh moi --
   function openAdd() {
@@ -738,91 +754,102 @@ export default function Anh5S() {
               </div>
             );
           })}
+          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onChange={setPage}
+              totalItems={totalItems}
+              pageSize={pageSize}
+            />
+          </div>
         </div>
       )}
 
       {/* -- Lightbox: truot qua lai nhieu anh cung 1 luot gui bang react-slick -- */}
-      {previewList && preview && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
-          onClick={closePreview}
-        >
+      {previewList &&
+        preview &&
+        createPortal(
           <div
-            className="relative w-full max-w-4xl"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+            onClick={closePreview}
           >
-            <button
-              onClick={closePreview}
-              title="Đóng (Esc)"
-              className="absolute -right-2 -top-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-700 shadow-lg transition hover:bg-gray-100"
+            <div
+              className="relative w-full max-w-4xl"
+              onClick={(e) => e.stopPropagation()}
             >
-              <X size={18} />
-            </button>
-
-            {previewList.length > 1 ? (
-              <Slider
-                initialSlide={previewIndex}
-                afterChange={(idx: number) => setPreviewIndex(idx)}
-                dots
-                infinite={false}
-                speed={300}
-                adaptiveHeight
-                prevArrow={<SliderArrow dir="prev" />}
-                nextArrow={<SliderArrow dir="next" />}
+              <button
+                onClick={closePreview}
+                title="Đóng (Esc)"
+                className="absolute -right-2 -top-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-700 shadow-lg transition hover:bg-gray-100"
               >
-                {previewList.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-center outline-none"
-                  >
-                    <img
-                      src={p.url_anh}
-                      alt={p.ten_file || ""}
-                      className="mx-auto max-h-[70vh] rounded-xl object-contain"
-                    />
-                  </div>
-                ))}
-              </Slider>
-            ) : (
-              <img
-                src={preview.url_anh}
-                alt={preview.ten_file || ""}
-                className="mx-auto max-h-[70vh] rounded-xl object-contain"
-              />
-            )}
+                <X size={18} />
+              </button>
 
-            <div className="mt-3 flex items-center justify-between text-sm text-white/80">
-              <span>
-                {preview.danh_gia?.khoa?.ten_khoa || preview.khoa?.ten_khoa} ·{" "}
-                {preview.ten_file}
-                {previewList.length > 1 &&
-                  ` · Ảnh ${previewIndex + 1}/${previewList.length}`}
-              </span>
-              <div className="flex items-center gap-2">
-                <a
-                  href={preview.url_anh}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+              {previewList.length > 1 ? (
+                <Slider
+                  initialSlide={previewIndex}
+                  afterChange={(idx: number) => setPreviewIndex(idx)}
+                  dots
+                  infinite={false}
+                  speed={300}
+                  adaptiveHeight
+                  prevArrow={<SliderArrow dir="prev" />}
+                  nextArrow={<SliderArrow dir="next" />}
                 >
-                  <Download size={13} /> Mở ảnh gốc
-                </a>
-                {!isViewOnly && (
-                  <button
-                    onClick={() =>
-                      setDeleting({ ids: [preview.id], label: "ảnh này" })
-                    }
-                    className="inline-flex items-center gap-1 rounded-lg bg-red-500/80 px-3 py-1.5 text-xs text-white hover:bg-red-500"
+                  {previewList.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-center outline-none"
+                    >
+                      <img
+                        src={p.url_anh}
+                        alt={p.ten_file || ""}
+                        className="mx-auto max-h-[70vh] rounded-xl object-contain"
+                      />
+                    </div>
+                  ))}
+                </Slider>
+              ) : (
+                <img
+                  src={preview.url_anh}
+                  alt={preview.ten_file || ""}
+                  className="mx-auto max-h-[70vh] rounded-xl object-contain"
+                />
+              )}
+
+              <div className="mt-3 flex items-center justify-between text-sm text-white/80">
+                <span>
+                  {preview.danh_gia?.khoa?.ten_khoa || preview.khoa?.ten_khoa} ·{" "}
+                  {preview.ten_file}
+                  {previewList.length > 1 &&
+                    ` · Ảnh ${previewIndex + 1}/${previewList.length}`}
+                </span>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={preview.url_anh}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
                   >
-                    <Trash2 size={13} /> Xoá ảnh
-                  </button>
-                )}
+                    <Download size={13} /> Mở ảnh gốc
+                  </a>
+                  {!isViewOnly && (
+                    <button
+                      onClick={() =>
+                        setDeleting({ ids: [preview.id], label: "ảnh này" })
+                      }
+                      className="inline-flex items-center gap-1 rounded-lg bg-red-500/80 px-3 py-1.5 text-xs text-white hover:bg-red-500"
+                    >
+                      <Trash2 size={13} /> Xoá ảnh
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* -- Modal them / sua anh -- */}
       <Modal
@@ -1091,7 +1118,6 @@ function Anh5SCard({
     dg?.khoa?.ten_khoa || manual?.khoa?.ten_khoa || `Lượt #${g.list[0].id}`;
   const vitriTen = dg?.vitri_type?.ten_vitri || manual?.vitri_type?.ten_vitri;
 
-  console.log("g.dg", g.dg);
   const nguoiTxt = dg
     ? [
         dg.nguoi_danh_gia?.email || dg.nguoi_danh_gia?.username,

@@ -6,6 +6,8 @@ import {
   Printer,
   FileText,
   RotateCcw,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   ExcelJS,
@@ -38,11 +40,25 @@ import { useIsViewOnly } from "../features/auth/usePermission";
 import { useToast } from "../features/ui/useToast";
 
 // Thứ 2 đầu tuần của 1 ngày bất kỳ
-function mondayOf(d: Date): string {
+function startOfWeek(d: Date): Date {
   const x = new Date(d);
   const day = x.getDay();
   x.setDate(x.getDate() - (day === 0 ? 6 : day - 1));
-  return x.toISOString().slice(0, 10);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);
+// "YYYY-MM-DD" theo GIỜ ĐỊA PHƯƠNG (không dùng toISOString() vì lệch UTC)
+const fmt = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+const fmtVN = (d: Date) =>
+  d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+function mondayOf(d: Date): string {
+  return fmt(startOfWeek(d));
 }
 
 const CHAT_LUONG_OPTIONS = [
@@ -72,8 +88,10 @@ export default function Zalo5S() {
   const [records, setRecords] = useState<Anh5sTuan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterTuan, setFilterTuan] = useState("");
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [filterKhoa, setFilterKhoa] = useState<number | "">("");
+  const [filterTrangThai, setFilterTrangThai] = useState<"" | "da-gui" | "chua-gui">("");
+  const [filterChatLuong, setFilterChatLuong] = useState("");
 
   // Modal ghi nhận
   const [modalOpen, setModalOpen] = useState(false);
@@ -105,11 +123,8 @@ export default function Zalo5S() {
 
   useEffect(load, [load]);
 
-  const tuanOptions = useMemo(
-    () => [...new Set(records.map((r) => r.tuan))].sort().reverse(),
-    [records],
-  );
-  const activeTuan = filterTuan || tuanOptions[0] || mondayOf(new Date());
+  const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
+  const activeTuan = useMemo(() => fmt(weekStart), [weekStart]);
 
   const weekMap = useMemo(() => {
     const map = new Map<number, Anh5sTuan>();
@@ -119,15 +134,22 @@ export default function Zalo5S() {
     return map;
   }, [records, activeTuan]);
 
-  // Danh sách khoa hiển thị trong bảng + xuất file — thu hẹp theo bộ lọc Khoa/Phòng
-  // (KPI tổng quan phía trên vẫn tính trên toàn viện, không phụ thuộc bộ lọc này)
-  const displayedKhoaList = useMemo(
-    () =>
-      filterKhoa === ""
-        ? khoaList
-        : khoaList.filter((k) => k.id === filterKhoa),
-    [khoaList, filterKhoa],
-  );
+  // Danh sách khoa hiển thị trong bảng + xuất file — thu hẹp theo Khoa/Phòng +
+  // Trạng thái (đã gửi/chưa gửi) + Chất lượng (chỉ áp dụng cho khoa đã gửi)
+  const displayedKhoaList = useMemo(() => {
+    let list =
+      filterKhoa === "" ? khoaList : khoaList.filter((k) => k.id === filterKhoa);
+    if (filterTrangThai || filterChatLuong) {
+      list = list.filter((k) => {
+        const r = weekMap.get(k.id);
+        if (filterTrangThai === "da-gui" && !r) return false;
+        if (filterTrangThai === "chua-gui" && r) return false;
+        if (filterChatLuong && r?.chat_luong !== filterChatLuong) return false;
+        return true;
+      });
+    }
+    return list;
+  }, [khoaList, filterKhoa, filterTrangThai, filterChatLuong, weekMap]);
 
   const kpi = useMemo(() => {
     const daGui = [...weekMap.values()];
@@ -329,7 +351,33 @@ export default function Zalo5S() {
 
       {/* ── Bộ lọc ── */}
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        <Field label="Khoa / Phòng" className="min-w-[240px]">
+        <Field label="Tuần đang xem">
+          <div className="flex items-center gap-1.5">
+            <button
+              className={btnSecondary}
+              onClick={() => setWeekStart(addDays(weekStart, -7))}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="flex h-9 min-w-[150px] items-center justify-center whitespace-nowrap rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200">
+              {fmtVN(weekStart)} – {fmtVN(weekEnd)}/{weekEnd.getFullYear()}
+            </span>
+            <button
+              className={btnSecondary}
+              onClick={() => setWeekStart(addDays(weekStart, 7))}
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button
+              className={btnSecondary}
+              onClick={() => setWeekStart(startOfWeek(new Date()))}
+            >
+              Tuần này
+            </button>
+          </div>
+        </Field>
+
+        <Field label="Khoa / Phòng" className="min-w-[220px]">
           <SearchableSelect
             value={filterKhoa}
             onChange={setFilterKhoa}
@@ -338,20 +386,44 @@ export default function Zalo5S() {
           />
         </Field>
 
-        <select
-          className={inputCls}
-          value={filterTuan}
-          onChange={(e) => setFilterTuan(e.target.value)}
-        >
-          {tuanOptions.length === 0 && <option value="">Tuần này</option>}
-          {tuanOptions.map((t) => (
-            <option key={t} value={t}>
-              Tuần {new Date(t).toLocaleDateString("vi-VN")}
-            </option>
-          ))}
-        </select>
-        {filterKhoa !== "" && (
-          <button className={btnSecondary} onClick={() => setFilterKhoa("")}>
+        <Field label="Trạng thái">
+          <select
+            className={inputCls}
+            value={filterTrangThai}
+            onChange={(e) =>
+              setFilterTrangThai(e.target.value as "" | "da-gui" | "chua-gui")
+            }
+          >
+            <option value="">— Tất cả —</option>
+            <option value="da-gui">✓ Đã gửi</option>
+            <option value="chua-gui">Chưa gửi</option>
+          </select>
+        </Field>
+
+        <Field label="Chất lượng">
+          <select
+            className={inputCls}
+            value={filterChatLuong}
+            onChange={(e) => setFilterChatLuong(e.target.value)}
+          >
+            <option value="">— Tất cả —</option>
+            {CHAT_LUONG_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {(filterKhoa !== "" || filterTrangThai || filterChatLuong) && (
+          <button
+            className={btnSecondary}
+            onClick={() => {
+              setFilterKhoa("");
+              setFilterTrangThai("");
+              setFilterChatLuong("");
+            }}
+          >
             <RotateCcw size={14} /> Xoá lọc
           </button>
         )}
@@ -365,9 +437,7 @@ export default function Zalo5S() {
             <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
               Bảng theo dõi tuần{" "}
               {new Date(activeTuan).toLocaleDateString("vi-VN")} —{" "}
-              {filterKhoa === ""
-                ? `toàn bộ ${khoaList.length} khoa/phòng/TT`
-                : `${displayedKhoaList.length} khoa/phòng phù hợp`}
+              {displayedKhoaList.length} khoa/phòng phù hợp
             </h3>
           </div>
           <div className="max-h-[65vh] overflow-auto">

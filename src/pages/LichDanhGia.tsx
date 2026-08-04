@@ -37,6 +37,8 @@ import { useHasPermission } from "../features/auth/usePermission";
 import { useToast } from "../features/ui/useToast";
 import { PERMISSION } from "../features/auth/permissions";
 import { invalidateTodayLich } from "../features/qlcl/todayLichSlice";
+import { isLichDone, isLichSelfReview, groupLich } from "../features/qlcl/lichUtils";
+import type { LichGroup } from "../features/qlcl/lichUtils";
 
 const THU_LABEL = [
   "",
@@ -88,44 +90,8 @@ function inferLoaiLichFromTenDot(tenDot: string | undefined): string {
   return "mot_lan";
 }
 
-// Nhóm các dòng LichPhanCong (1 dòng = 1 người) thuộc cùng 1 buổi lịch
-// (cùng khoa + vị trí + loại + thứ/ngày) lại thành 1 thẻ hiển thị nhiều người.
-interface LichGroup {
-  key: string;
-  khoa?: LichPhanCong["khoa"];
-  vitri_type?: LichPhanCong["vitri_type"];
-  loai_lich: string;
-  ghiChu: string | null;
-  items: LichPhanCong[];
-}
-
-function groupLich(items: LichPhanCong[]): LichGroup[] {
-  const map = new Map<string, LichGroup>();
-  for (const l of items) {
-    const key = [
-      l.khoa_id,
-      l.vitri_type_id ?? "x",
-      l.loai_lich,
-      l.thu_trong_tuan ?? "x",
-      l.ngay_thuc_hien ?? "x",
-    ].join("|");
-    let g = map.get(key);
-    if (!g) {
-      g = {
-        key,
-        khoa: l.khoa,
-        vitri_type: l.vitri_type,
-        loai_lich: l.loai_lich,
-        ghiChu: null,
-        items: [],
-      };
-      map.set(key, g);
-    }
-    g.items.push(l);
-    if (!g.ghiChu && l.ghi_chu) g.ghiChu = l.ghi_chu;
-  }
-  return Array.from(map.values());
-}
+// groupLich/LichGroup dùng chung từ lichUtils.ts (đã tự nhóm riêng theo LUỒNG
+// tự đánh giá/QLCL đánh giá, xem isLichSelfReview + ghi chú ở lichUtils.ts).
 
 function tenNguoi(l: LichPhanCong) {
   return l.nguoi_thuc_hien?.email || l.nguoi_thuc_hien?.username || "";
@@ -189,9 +155,17 @@ function groupTTExpanded(
 ): TTGroup[] {
   const map = new Map<string, TTGroup>();
   for (const { lich: l, date } of expanded) {
-    const key = [l.khoa_id, l.vitri_type_id ?? "x", l.loai_lich, date].join(
-      "|",
-    );
+    // Nhóm riêng theo LUỒNG (tự đánh giá / QLCL đánh giá) -- xem ghi chú ở
+    // groupLich (lichUtils.ts): 2 lịch của 2 luồng khác nhau trùng
+    // khoa/vị trí/loại/ngày KHÔNG được gộp chung 1 dòng, kẻo lẫn tên người +
+    // trạng thái hoàn thành của luồng này sang luồng kia.
+    const key = [
+      l.khoa_id,
+      l.vitri_type_id ?? "x",
+      l.loai_lich,
+      date,
+      isLichSelfReview(l) ? "tu-danh-gia" : "qlcl-danh-gia",
+    ].join("|");
     let g = map.get(key);
     if (!g) {
       g = { key, lich: l, date, items: [] };
@@ -361,16 +335,22 @@ export default function LichDanhGia() {
     [users],
   );
 
+  // Trưởng khoa/Nhân viên (không được browse khoa khác) bị KHOÁ CỨNG bộ lọc
+  // "khoa của cán bộ phụ trách" về đúng khoa/phòng của chính họ -- không còn
+  // thấy lịch/cán bộ Phòng QLCL nữa (kể cả khi QLCL đến đánh giá khoa họ).
+  // Admin/Lãnh đạo/Phòng QLCL vẫn dùng filterKhoaCanBo do họ tự chọn qua select.
+  const effectiveFilterKhoaCanBo = canBrowseKhoaCanBo
+    ? filterKhoaCanBo
+    : (currentUser?.khoa_id ?? "");
+
   // Danh sách cán bộ hiện trong 2 select "— Tất cả cán bộ —" (lịch tuần + bảng
   // theo dõi tuân thủ) -- đúng theo comment ở isAdmin phía trên: Admin thấy toàn
   // bộ (thu hẹp lại theo "Khoa/Phòng cán bộ" nếu đang lọc), các role khác CHỈ
   // thấy cán bộ cùng khoa/phòng của mình, không phải toàn bộ user hệ thống.
   const canBoOptions = useMemo(() => {
-    if (!canBrowseKhoaCanBo)
-      return users.filter((u) => u.khoa_id === currentUser?.khoa_id);
-    if (filterKhoaCanBo === "") return users;
-    return users.filter((u) => u.khoa_id === Number(filterKhoaCanBo));
-  }, [users, canBrowseKhoaCanBo, filterKhoaCanBo, currentUser?.khoa_id]);
+    if (effectiveFilterKhoaCanBo === "") return users;
+    return users.filter((u) => u.khoa_id === Number(effectiveFilterKhoaCanBo));
+  }, [users, effectiveFilterKhoaCanBo]);
 
   // Danh sách "Người phụ trách" được phép tích chọn:
   // - Trưởng khoa/phòng (không phải Admin): LUÔN LÀ CÁN BỘ CỦA CHÍNH PHÒNG/KHOA
@@ -472,8 +452,8 @@ export default function LichDanhGia() {
         if (filterNguoi && String(l.nguoi_thuc_hien_id) !== filterNguoi)
           return false;
         if (
-          filterKhoaCanBo !== "" &&
-          userKhoaMap.get(l.nguoi_thuc_hien_id) !== Number(filterKhoaCanBo)
+          effectiveFilterKhoaCanBo !== "" &&
+          userKhoaMap.get(l.nguoi_thuc_hien_id) !== Number(effectiveFilterKhoaCanBo)
         )
           return false;
         if (l.loai_lich === "dinh_ky") {
@@ -487,18 +467,15 @@ export default function LichDanhGia() {
         return l.ngay_thuc_hien === dStr;
       });
     },
-    [lichList, filterNguoi, filterKhoaCanBo, userKhoaMap],
+    [lichList, filterNguoi, effectiveFilterKhoaCanBo, userKhoaMap],
   );
 
-  // Đã có kết quả đánh giá (bảng kiểm) khớp khoa + vị trí + ngày → coi là đã hoàn thành
+  // Đã có kết quả đánh giá (bảng kiểm) khớp khoa + vị trí + ngày + ĐÚNG cán bộ
+  // được phân công trong lịch → coi là đã hoàn thành (xem isLichDone ở
+  // lichUtils.ts -- dùng chung để 2 luồng lịch khác nhau, dù trùng khoa/vị
+  // trí/ngày, KHÔNG bị tính nhầm hoàn thành lẫn của nhau).
   const isDone = useCallback(
-    (l: LichPhanCong, dateStr: string) =>
-      danhGiaList.some(
-        (dg) =>
-          dg.khoa_id === l.khoa_id &&
-          dg.ngay_danh_gia === dateStr &&
-          (!l.vitri_type_id || dg.vitri_type_id === l.vitri_type_id),
-      ),
+    (l: LichPhanCong, dateStr: string) => isLichDone(danhGiaList, l, dateStr),
     [danhGiaList],
   );
 
@@ -535,7 +512,10 @@ export default function LichDanhGia() {
       const dStr = fmt(d);
       groupLich(lichForDay(d)).forEach((g) => {
         total++;
-        if (isDone(g.items[0], dStr)) done++;
+        // Nhóm có thể gồm nhiều người CÙNG luồng -- "hoàn thành" nếu BẤT KỲ
+        // người nào trong nhóm đã nộp đánh giá, không chỉ kiểm tra người đầu
+        // tiên (items[0]) như trước.
+        if (g.items.some((l) => isDone(l, dStr))) done++;
         else if (dStr <= todayStr) miss++;
         else upcoming++;
       });
@@ -552,12 +532,12 @@ export default function LichDanhGia() {
     let items = lichList;
     if (ttNguoi)
       items = items.filter((l) => String(l.nguoi_thuc_hien_id) === ttNguoi);
-    if (filterKhoaCanBo !== "")
+    if (effectiveFilterKhoaCanBo !== "")
       items = items.filter(
-        (l) => userKhoaMap.get(l.nguoi_thuc_hien_id) === Number(filterKhoaCanBo),
+        (l) => userKhoaMap.get(l.nguoi_thuc_hien_id) === Number(effectiveFilterKhoaCanBo),
       );
     return expandLichRange(items, from, to);
-  }, [lichList, ttRange, ttNguoi, todayStr, filterKhoaCanBo, userKhoaMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lichList, ttRange, ttNguoi, todayStr, effectiveFilterKhoaCanBo, userKhoaMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Gộp nhiều cán bộ phụ trách của cùng 1 buổi lịch/ngày vào 1 nhóm — KPI và
   // bảng chi tiết đếm theo BUỔI LỊCH (không theo số người), tránh đếm trùng khi
@@ -566,9 +546,11 @@ export default function LichDanhGia() {
 
   const ttKpi = useMemo(() => {
     const total = ttGroups.length;
-    const done = ttGroups.filter((g) => isDone(g.lich, g.date)).length;
+    const done = ttGroups.filter((g) =>
+      g.items.some((l) => isDone(l, g.date)),
+    ).length;
     const miss = ttGroups.filter(
-      (g) => !isDone(g.lich, g.date) && g.date <= todayStr,
+      (g) => !g.items.some((l) => isDone(l, g.date)) && g.date <= todayStr,
     ).length;
     return { total, done, miss, upcoming: total - done - miss };
   }, [ttGroups, isDone, todayStr]);
@@ -730,7 +712,7 @@ export default function LichDanhGia() {
   // (đủ lịch của 1 ngày) để không lặp code.
   function renderLichCard(g: LichGroup, d: Date) {
     const dStr = fmt(d);
-    const done = isDone(g.items[0], dStr);
+    const done = g.items.some((l) => isDone(l, dStr));
     const isPastOrToday = dStr <= fmt(today);
     const names = g.items.map(tenNguoi).filter(Boolean).join(" · ");
     return (
@@ -804,8 +786,7 @@ export default function LichDanhGia() {
       await Promise.all(
         g.items.map((it) => createUpdateLichPhanCong({ id: it.id, active: 0 })),
       );
-      const ids = new Set(g.items.map((it) => it.id));
-      setLichList((prev) => prev.filter((x) => !ids.has(x.id)));
+      load();
       dispatch(invalidateTodayLich());
       setConfirmDeleteGroup(null);
       toast.success("Đã xoá lịch đánh giá!");
@@ -964,7 +945,7 @@ export default function LichDanhGia() {
             ) : (
               <ul className="space-y-2">
                 {groupLich(todayLich).map((g) => {
-                  const done = isDone(g.items[0], todayStr);
+                  const done = g.items.some((l) => isDone(l, todayStr));
                   const names = g.items
                     .map(tenNguoi)
                     .filter(Boolean)
@@ -1266,7 +1247,7 @@ export default function LichDanhGia() {
                   )}
                   {ttDetail.map((g) => {
                     const { lich: l, date } = g;
-                    const done = isDone(l, date);
+                    const done = g.items.some((li) => isDone(li, date));
                     const isPast = date <= todayStr;
                     const isToday = date === todayStr;
                     const names = g.items.map(tenNguoi).filter(Boolean);

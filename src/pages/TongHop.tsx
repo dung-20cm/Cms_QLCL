@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Table2, Download, RotateCcw } from "lucide-react";
 import {
   ExcelJS,
@@ -22,14 +22,17 @@ import { fetchDotDanhGiaList } from "../features/qlcl/api";
 import SearchableSelect from "../components/ui/SearchableSelect";
 import Pagination, { usePagination } from "../components/ui/Pagination";
 import CountUp from "../components/ui/CountUp";
-import { useAppDispatch } from "../app/hooks";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { loadDanhGia } from "../features/qlcl/danhGiaSlice";
+import { findKhoaQlclId } from "../features/qlcl/lichUtils";
 import type { DanhGia, DotDanhGia } from "../features/qlcl/types";
 import {
   DOT_DANH_GIA_OPTIONS,
   toneBadgeClass,
   toneFromPct,
 } from "../features/qlcl/types";
+import { PERMISSION } from "../features/auth/permissions";
+import { useHasPermission } from "../features/auth/usePermission";
 // import type { DotDanhGia } from "../features/qlcl/types";
 
 type SortKey = "newest" | "oldest" | "rank_desc" | "rank_asc" | "khoa";
@@ -37,10 +40,20 @@ type SortKey = "newest" | "oldest" | "rank_desc" | "rank_asc" | "khoa";
 export default function TongHop() {
   const { khoaList, vitriTypes } = useCatalog();
   const dispatch = useAppDispatch();
+  const user = useAppSelector((s) => s.auth.user);
   // Dữ liệu lấy từ cache Redux dùng chung (danhGiaSlice) -- không tự gọi API
   // riêng nữa, tránh gọi lại nếu trang khác đã tải sẵn cùng dữ liệu này.
   const { rows, status, error } = useDanhGia();
   const loading = status === "idle" || status === "loading";
+
+  // Trưởng khoa/Nhân viên: chỉ xem tổng hợp của ĐÚNG khoa/phòng mình, không
+  // browse được khoa khác. Admin/Lãnh đạo/Phòng QLCL: mặc định xem khoa Phòng
+  // QLCL nhưng vẫn chọn được khoa khác qua ô select (giống LichDanhGia.tsx).
+  const isRealAdmin = useHasPermission(PERMISSION.TAO_TAI_KHOAN);
+  const isAdminOrLanhDao = useHasPermission(PERMISSION.XEM_TOAN_QUYEN_BAO_CAO_LICH);
+  const isQlcl = useHasPermission(PERMISSION.XEM_TONG_HOP_TAT_CA_KHOA) && !isRealAdmin;
+  const canBrowseKhoa = isAdminOrLanhDao || isQlcl;
+  const khoaQlclId = useMemo(() => findKhoaQlclId(khoaList), [khoaList]);
 
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
@@ -48,6 +61,18 @@ export default function TongHop() {
   const [fVitri, setFVitri] = useState("");
   const [fDot, setFDot] = useState("");
   const [sort, setSort] = useState<SortKey>("newest");
+
+  // Mặc định khoá fKhoa: Admin/Lãnh đạo/QLCL -> Phòng QLCL (chỉ khoá 1 LẦN,
+  // vẫn cho tự đổi qua select sau đó); Trưởng khoa/Nhân viên -> khoa mình,
+  // khoá cứng ở effectiveFKhoa bên dưới (không cho đổi).
+  const didLockFKhoaRef = useRef(false);
+  useEffect(() => {
+    if (didLockFKhoaRef.current) return;
+    if (!canBrowseKhoa || khoaQlclId == null) return;
+    setFKhoa(String(khoaQlclId));
+    didLockFKhoaRef.current = true;
+  }, [canBrowseKhoa, khoaQlclId]);
+  const effectiveFKhoa = canBrowseKhoa ? fKhoa : String(user?.khoa_id ?? "");
 
   // const dotOptions = useMemo(
   //   () => [...new Set(rows.map((r) => r.dot_danh_gia))].sort(),
@@ -71,7 +96,10 @@ export default function TongHop() {
     const list = rows.filter((r) => {
       if (fFrom && r.ngay_danh_gia < fFrom) return false;
       if (fTo && r.ngay_danh_gia > fTo) return false;
-      if (fKhoa && String(r.khoa_id) !== fKhoa) return false;
+      // Lọc theo khoa/phòng CỦA NGƯỜI ĐÁNH GIÁ (không phải khoa được đánh giá) --
+      // chọn "Phòng Tài chính – Kế toán" nghĩa là xem các lượt do CHÍNH nhân
+      // viên phòng đó thực hiện, không phải các lượt QLCL đi đánh giá phòng đó.
+      if (effectiveFKhoa && String(r.nguoi_danh_gia?.khoa_id ?? "") !== effectiveFKhoa) return false;
       if (fVitri && String(r.vitri_type_id) !== fVitri) return false;
       if (fDot && r.dot_danh_gia !== fDot) return false;
       return true;
@@ -87,7 +115,7 @@ export default function TongHop() {
         (a.khoa?.ten_khoa || "").localeCompare(b.khoa?.ten_khoa || "", "vi"),
     };
     return [...list].sort(bySort[sort]);
-  }, [rows, fFrom, fTo, fKhoa, fVitri, fDot, sort]);
+  }, [rows, fFrom, fTo, effectiveFKhoa, fVitri, fDot, sort]);
 
   const {
     page,
@@ -256,13 +284,14 @@ export default function TongHop() {
         </Field>
         <Field label="Khoa / Phòng">
           <SearchableSelect
-            value={fKhoa}
+            value={effectiveFKhoa}
             onChange={(v) => setFKhoa(v)}
             options={khoaList.map((k) => ({
               value: String(k.id),
               label: k.ten_khoa,
             }))}
             placeholder="— Tất cả —"
+            disabled={!canBrowseKhoa}
           />
         </Field>
         <Field label="Vị trí">
