@@ -1,4 +1,5 @@
 import { FileText, Pencil, Trash2, X } from "lucide-react";
+import { photoImageUrl } from "../../features/qlcl/api";
 import { toneBadgeClass, toneFromPct } from "../../features/qlcl/types";
 import { pctFromKetQua } from "./helpers";
 import type { PhotoGroup } from "./types";
@@ -130,7 +131,7 @@ export default function Anh5SCard({
               className="block h-full w-full"
             >
               <img
-                src={p.url_anh}
+                src={photoImageUrl(p.id)}
                 alt={p.ten_file || "Ảnh 5S"}
                 loading="lazy"
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"

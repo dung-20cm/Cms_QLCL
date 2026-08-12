@@ -1,4 +1,5 @@
 import { apiClient, ApiError } from "../../lib/axiosClient";
+import { getToken } from "../auth/tokenStorage";
 import type {
   Anh5sTuan,
   CreateDanhGiaPayload,
@@ -458,16 +459,43 @@ export async function deletePhotoGallery(id: number): Promise<void> {
   await apiClient.post(`/api/photo-gallery/delete-photo-gallery/${id}`);
 }
 
-// Upload anh len Cloudinary qua backend, tra ve url
-export async function uploadImage(file: File): Promise<{ url: string }> {
+// Upload ảnh (được backend resize/nén rồi lưu cục bộ trên server -- xem
+// server_qlcl/CLOUDINARY_README.txt để biết cách bật lại Cloudinary sau này).
+// `url` trả về giờ là 1 KEY tương đối (VD "2026/08/12/xxx.jpg"), KHÔNG phải
+// link công khai -- phải dùng photoImageUrl(id) để hiển thị ảnh sau khi đã
+// lưu bản ghi photo_gallery (route ảnh có xác thực + khoá theo khoa).
+// `mimeType` là loại file THẬT SỰ sau khi backend xử lý (luôn "image/jpeg"
+// trừ ảnh .svg) -- phải dùng giá trị này khi tạo bản ghi photo_gallery, KHÔNG
+// dùng lại `file.type` gốc phía client (có thể sai, VD ảnh .png gốc bị nén
+// thành .jpg).
+export async function uploadImage(
+  file: File,
+): Promise<{ url: string; mimeType?: string }> {
   const form = new FormData();
   form.append("image", file);
   const res = await apiClient.post<
-    Envelope<{ url?: string; secure_url?: string } | string>
+    Envelope<
+      { url?: string; secure_url?: string; mimeType?: string } | string
+    >
   >("/api/upload/uploadImage", form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   const data = res.data.data;
   if (typeof data === "string") return { url: data };
-  return { url: data?.secure_url || data?.url || "" };
+  return {
+    url: data?.secure_url || data?.url || "",
+    mimeType: data?.mimeType,
+  };
+}
+
+// URL để hiển thị/tải 1 ảnh minh chứng đã lưu (route CÓ xác thực + khoá theo
+// khoa -- xem GET /api/photo-gallery/image/:id, service getImageForServing).
+// Dùng cho MỌI nơi render ảnh (<img src>, lightbox, xuất PPTX...) thay vì đọc
+// thẳng photo.url_anh (giờ chỉ là key nội bộ, không phải URL xem được).
+// Token đính kèm qua query string vì thẻ <img>/pptxgenjs không tự gắn được
+// header -- middleware check_permission đã hỗ trợ sẵn đọc token từ query.
+export function photoImageUrl(id: number): string {
+  const token = getToken() || "";
+  const base = apiClient.defaults.baseURL || "";
+  return `${base}/api/photo-gallery/image/${id}?token=${encodeURIComponent(token)}`;
 }

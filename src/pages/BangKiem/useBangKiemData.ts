@@ -503,13 +503,16 @@ export function useBangKiemData() {
         const total = photos.length;
         for (const f of photos) {
           try {
-            const { url } = await uploadImage(f);
+            const { url, mimeType } = await uploadImage(f);
             if (url) {
               const created = await createPhotoGallery({
                 danh_gia_id: rec.id,
                 url_anh: url,
                 ten_file: f.name,
-                mime_type: f.type,
+                // mimeType do backend trả về (loại file THẬT SỰ sau khi
+                // resize/nén) -- không dùng f.type gốc, xem giải thích ở
+                // Anh5S/useAnh5SData.ts.
+                mime_type: mimeType || f.type,
               });
               setExistingPhotos((prev) => [...prev, created]);
               ok++;

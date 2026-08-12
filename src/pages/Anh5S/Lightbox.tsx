@@ -3,6 +3,7 @@ import SliderRaw from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import { ChevronLeft, ChevronRight, Download, Trash2, X } from "lucide-react";
+import { photoImageUrl } from "../../features/qlcl/api";
 import type { Anh5SData } from "./useAnh5SData";
 
 // FIX: Vite/esbuild bundle CJS cua react-slick bi "double-wrap" default export
@@ -82,7 +83,7 @@ export default function Lightbox({ a }: { a: Anh5SData }) {
                 className="flex items-center justify-center outline-none"
               >
                 <img
-                  src={p.url_anh}
+                  src={photoImageUrl(p.id)}
                   alt={p.ten_file || ""}
                   className="mx-auto max-h-[70vh] rounded-xl object-contain"
                 />
@@ -91,7 +92,7 @@ export default function Lightbox({ a }: { a: Anh5SData }) {
           </Slider>
         ) : (
           <img
-            src={preview.url_anh}
+            src={photoImageUrl(preview.id)}
             alt={preview.ten_file || ""}
             className="mx-auto max-h-[70vh] rounded-xl object-contain"
           />
@@ -106,7 +107,7 @@ export default function Lightbox({ a }: { a: Anh5SData }) {
           </span>
           <div className="flex items-center gap-2">
             <a
-              href={preview.url_anh}
+              href={photoImageUrl(preview.id)}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"

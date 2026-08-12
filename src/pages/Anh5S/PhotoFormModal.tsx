@@ -8,6 +8,7 @@ import {
   Modal,
 } from "../../components/ui/PageShell";
 import SearchableSelect from "../../components/ui/SearchableSelect";
+import { photoImageUrl } from "../../features/qlcl/api";
 import { KET_QUA_ANH_OPTIONS } from "../../features/qlcl/types";
 import type { Anh5SData } from "./useAnh5SData";
 
@@ -161,7 +162,7 @@ export default function PhotoFormModal({ a }: { a: Anh5SData }) {
                   key={p.id}
                   className="relative h-20 w-20 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700"
                 >
-                  <img src={p.url_anh} alt="" className="h-full w-full object-cover" />
+                  <img src={photoImageUrl(p.id)} alt="" className="h-full w-full object-cover" />
                   <button
                     onClick={() => removeExistingPhoto(p.id)}
                     className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-red-500"

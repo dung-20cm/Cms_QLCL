@@ -10,6 +10,7 @@ import {
   createPhotoGallery,
   deletePhotoGallery,
   fetchPhotoGalleryList,
+  photoImageUrl,
   updatePhotoGallery,
   uploadImage,
 } from "../../features/qlcl/api";
@@ -347,22 +348,25 @@ export function useAnh5SData() {
       for (let i = 0; i < form.newFiles.length; i++) {
         const f = form.newFiles[i];
         setSaveProgress(`Đang tải ảnh ${i + 1}/${form.newFiles.length}...`);
-        const { url } = await uploadImage(f);
+        const { url, mimeType } = await uploadImage(f);
         if (!url) throw new Error(`Tải ảnh "${f.name}" thất bại`);
+        // Dùng mimeType backend trả về (loại file THẬT SỰ sau khi resize/nén,
+        // luôn "image/jpeg" trừ .svg) -- không dùng lại f.type gốc phía client
+        // vì có thể sai (VD ảnh .png gốc bị nén thành .jpg).
         if (form.locked && form.danhGiaId) {
           await createPhotoGallery({
             danh_gia_id: form.danhGiaId,
             ghi_chu: form.ghi_chu.trim() || null,
             url_anh: url,
             ten_file: f.name,
-            mime_type: f.type,
+            mime_type: mimeType || f.type,
           });
         } else {
           await createPhotoGallery({
             ...meta,
             url_anh: url,
             ten_file: f.name,
-            mime_type: f.type,
+            mime_type: mimeType || f.type,
           });
         }
       }
@@ -424,7 +428,7 @@ export function useAnh5SData() {
           tagLabel,
           photos: g.list
             .filter((p) => p.url_anh)
-            .map((p) => ({ url: p.url_anh, name: p.ten_file || "" })),
+            .map((p) => ({ url: photoImageUrl(p.id), name: p.ten_file || "" })),
         };
       });
       const rangeLabel =

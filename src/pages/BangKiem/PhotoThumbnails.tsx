@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { photoImageUrl } from "../../features/qlcl/api";
 import type { BangKiemData } from "./useBangKiemData";
 
 // Thumbnail ảnh minh chứng (đã lưu + vừa chọn) -- viền xanh sidebar, hover
@@ -21,7 +22,7 @@ export default function PhotoThumbnails({ bk }: { bk: BangKiemData }) {
         <div key={`existing-${p.id}`} className="group relative h-16 w-16 shrink-0">
           <div className="h-full w-full overflow-hidden rounded-lg border-2 border-[#185FA5]/30 shadow-sm transition-all duration-200 ease-out group-hover:-translate-y-0.5 group-hover:border-[#185FA5] group-hover:shadow-lg group-hover:shadow-[#185FA5]/25">
             <img
-              src={p.url_anh}
+              src={photoImageUrl(p.id)}
               alt={p.ten_file || "Ảnh minh chứng"}
               className="h-full w-full object-cover transition-transform duration-200 ease-out group-hover:scale-110"
             />
