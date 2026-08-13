@@ -501,9 +501,20 @@ export function useBangKiemData() {
       if (photos.length > 0 && rec?.id) {
         let ok = 0;
         const total = photos.length;
+        // Ngữ cảnh đặt tên file dễ quản lý (VD "Ptchc_dungpt_12082026_anh1")
+        // -- khoa/ngày lấy từ chính lượt đánh giá vừa lưu, người = tài khoản
+        // đang đăng nhập (luôn là người đánh giá, theo đúng quyền sở hữu ảnh
+        // minh chứng). Đánh số tiếp theo ảnh đã có sẵn (existingPhotos).
+        const khoaTen = khoaList.find((k) => k.id === Number(khoaId))?.ten_khoa;
+        let nextIndex = existingPhotos.length + 1;
         for (const f of photos) {
           try {
-            const { url, mimeType } = await uploadImage(f);
+            const { url, mimeType } = await uploadImage(f, {
+              khoaTen,
+              username: user?.username,
+              ngay,
+              index: nextIndex,
+            });
             if (url) {
               const created = await createPhotoGallery({
                 danh_gia_id: rec.id,
@@ -516,6 +527,7 @@ export function useBangKiemData() {
               });
               setExistingPhotos((prev) => [...prev, created]);
               ok++;
+              nextIndex++;
             }
           } catch {
             /* bỏ qua ảnh lỗi, không chặn luồng lưu */

@@ -344,11 +344,30 @@ export function useAnh5SData() {
         }
       }
 
+      // Ngữ cảnh đặt tên file dễ quản lý (VD "Ptchc_dungpt_12082026_anh1") --
+      // khoa lấy theo form.khoa_id (đã khoá đúng khoa của đánh giá gốc ở
+      // nhánh "locked"), người: nếu gắn với 1 lượt đánh giá thì luôn là tài
+      // khoản đang đăng nhập (quyền sở hữu ảnh minh chứng), nếu ảnh gửi độc
+      // lập thì ưu tiên người được chọn ở ô "Người gửi", rơi về tài khoản
+      // đang đăng nhập nếu chưa chọn.
+      const khoaTenForUpload = khoaList.find(
+        (k) => k.id === Number(form.khoa_id),
+      )?.ten_khoa;
+      const usernameForUpload = form.locked
+        ? user?.username
+        : (users.find((u) => u.id === Number(form.nguoi_gui_id))?.username ??
+          user?.username);
+
       // Upload + tao ban ghi cho anh moi chon them
       for (let i = 0; i < form.newFiles.length; i++) {
         const f = form.newFiles[i];
         setSaveProgress(`Đang tải ảnh ${i + 1}/${form.newFiles.length}...`);
-        const { url, mimeType } = await uploadImage(f);
+        const { url, mimeType } = await uploadImage(f, {
+          khoaTen: khoaTenForUpload,
+          username: usernameForUpload,
+          ngay: form.ngay_chup,
+          index: form.existingPhotos.length + i + 1,
+        });
         if (!url) throw new Error(`Tải ảnh "${f.name}" thất bại`);
         // Dùng mimeType backend trả về (loại file THẬT SỰ sau khi resize/nén,
         // luôn "image/jpeg" trừ .svg) -- không dùng lại f.type gốc phía client

@@ -459,20 +459,36 @@ export async function deletePhotoGallery(id: number): Promise<void> {
   await apiClient.post(`/api/photo-gallery/delete-photo-gallery/${id}`);
 }
 
+// Ngữ cảnh để backend đặt tên file dễ quản lý, VD "Ptchc_dungpt_12082026_anh1"
+// (KhoaVietTat_username_ngàyThángNăm_anhN) -- xem buildPhotoBaseName ở
+// server_qlcl/service/photoNaming.service.js. Thiếu trường nào thì backend tự
+// rơi về tên ngẫu nhiên (uuid) như cũ, không lỗi.
+export interface PhotoNamingContext {
+  khoaTen?: string; // tên đầy đủ khoa/phòng -- backend tự viết tắt
+  username?: string; // username người đánh giá/người gửi ảnh
+  ngay?: string; // ngày đánh giá/ngày chụp, dạng "yyyy-MM-dd"
+  index?: number; // thứ tự ảnh trong lượt (1, 2, 3...) -- ra "anh1", "anh2"...
+}
+
 // Upload ảnh (được backend resize/nén rồi lưu cục bộ trên server -- xem
 // server_qlcl/CLOUDINARY_README.txt để biết cách bật lại Cloudinary sau này).
-// `url` trả về giờ là 1 KEY tương đối (VD "2026/08/12/xxx.jpg"), KHÔNG phải
-// link công khai -- phải dùng photoImageUrl(id) để hiển thị ảnh sau khi đã
-// lưu bản ghi photo_gallery (route ảnh có xác thực + khoá theo khoa).
+// `url` trả về giờ là 1 KEY tương đối (VD "2026/08/12/Ptchc_dungpt_12082026_anh1.jpg"),
+// KHÔNG phải link công khai -- phải dùng photoImageUrl(id) để hiển thị ảnh sau
+// khi đã lưu bản ghi photo_gallery (route ảnh có xác thực + khoá theo khoa).
 // `mimeType` là loại file THẬT SỰ sau khi backend xử lý (luôn "image/jpeg"
 // trừ ảnh .svg) -- phải dùng giá trị này khi tạo bản ghi photo_gallery, KHÔNG
 // dùng lại `file.type` gốc phía client (có thể sai, VD ảnh .png gốc bị nén
 // thành .jpg).
 export async function uploadImage(
   file: File,
+  naming?: PhotoNamingContext,
 ): Promise<{ url: string; mimeType?: string }> {
   const form = new FormData();
   form.append("image", file);
+  if (naming?.khoaTen) form.append("khoaTen", naming.khoaTen);
+  if (naming?.username) form.append("username", naming.username);
+  if (naming?.ngay) form.append("ngay", naming.ngay);
+  if (naming?.index) form.append("index", String(naming.index));
   const res = await apiClient.post<
     Envelope<
       { url?: string; secure_url?: string; mimeType?: string } | string
