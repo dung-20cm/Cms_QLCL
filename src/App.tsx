@@ -13,6 +13,7 @@ import XuHuong from "./pages/XuHuong";
 import TienDoKP from "./pages/TienDoKP";
 import BaoCao from "./pages/BaoCao";
 import TaiKhoan from "./pages/TaiKhoan";
+import XuatDuLieu from "./pages/XuatDuLieu";
 import CauHinhKhoaViTri from "./pages/cauhinh/CauHinhKhoaViTri";
 import CauHinhKhoaPhong from "./pages/cauhinh/CauHinhKhoaPhong";
 import CauHinhViTri from "./pages/cauhinh/CauHinhViTri";
@@ -34,6 +35,7 @@ import {
   PERM_XEM_TIEN_DO_KP,
   PERM_CAU_HINH,
   PERM_QUAN_LY_TAI_KHOAN,
+  PERM_XUAT_DU_LIEU,
 } from "./features/auth/permissions";
 
 // Trang chủ theo quyền (map.jpg): role có quyền xem tổng hợp thì vào Dashboard,
@@ -135,6 +137,14 @@ function App() {
               element={
                 <RequirePermission slug={PERM_QUAN_LY_TAI_KHOAN}>
                   <TaiKhoan />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/xuat-du-lieu"
+              element={
+                <RequirePermission slug={PERM_XUAT_DU_LIEU}>
+                  <XuatDuLieu />
                 </RequirePermission>
               }
             />

@@ -1,0 +1,206 @@
+import {
+  Users,
+  Wrench,
+  ImageIcon,
+  CalendarDays,
+  ClipboardCheck,
+  Camera,
+} from "lucide-react";
+import type { BangDefinition, BangKey } from "./types";
+
+// Icon riêng cho từng nút chọn bảng ở trang Xuất dữ liệu -- tách khỏi
+// BangDefinition (types.ts không import JSX/component) để constants.ts giữ
+// vai trò duy nhất khai báo cấu hình.
+export const BANG_ICON: Record<BangKey, typeof Users> = {
+  "tai-khoan": Users,
+  "hanh-dong-kp": Wrench,
+  "nhom-zalo": ImageIcon,
+  "lich-danh-gia": CalendarDays,
+  "ket-qua-5s": ClipboardCheck,
+  "anh-5s": Camera,
+};
+
+export const BANG_LIST: BangDefinition[] = [
+  {
+    key: "tai-khoan",
+    label: "Tài khoản",
+    sheetName: "Tài khoản",
+    fileName: "TaiKhoan",
+    description: "Danh sách tài khoản, vai trò, khoa/phòng",
+    columns: [
+      { header: "Tên đăng nhập", key: "ten_dang_nhap", width: 22 },
+      { header: "Họ và tên", key: "email", width: 24 },
+      { header: "Số điện thoại", key: "sdt", width: 16, align: "center" },
+      { header: "Khoa / Phòng", key: "khoa_phong", width: 26 },
+      { header: "Vai trò", key: "vai_tro", width: 16, align: "center" },
+      { header: "Trạng thái", key: "trang_thai", width: 14, align: "center" },
+      {
+        header: "Ngày tạo",
+        key: "ngay_tao",
+        width: 14,
+        align: "center",
+        isDate: true,
+      },
+    ],
+  },
+  {
+    key: "hanh-dong-kp",
+    label: "Hành động KP",
+    sheetName: "Hành động KP",
+    fileName: "HanhDongKP",
+    description: "Hành động và tiến độ khắc phục lỗi 5S",
+    columns: [
+      { header: "Khoa / Phòng", key: "khoa_phong", width: 26 },
+      { header: "Vị trí", key: "vi_tri", width: 20 },
+      { header: "Nhóm S", key: "nhom_s", width: 10, align: "center" },
+      { header: "Mô tả lỗi", key: "mo_ta_loi", width: 34 },
+      {
+        header: "Ngày phát hiện",
+        key: "ngay_phat_hien",
+        width: 15,
+        align: "center",
+        isDate: true,
+      },
+      { header: "Người phụ trách", key: "nguoi_phu_trach", width: 18 },
+      { header: "Hành động khắc phục", key: "hanh_dong_khac_phuc", width: 34 },
+      {
+        header: "Hạn xử lý",
+        key: "han_xu_ly",
+        width: 14,
+        align: "center",
+        isDate: true,
+      },
+      { header: "Tuần", key: "tuan", width: 16, align: "center" },
+      { header: "Trạng thái", key: "trang_thai", width: 15, align: "center" },
+      { header: "Ghi chú", key: "ghi_chu", width: 26 },
+    ],
+  },
+  {
+    key: "nhom-zalo",
+    label: "Nhóm Zalo",
+    sheetName: "Nhóm Zalo 5S",
+    fileName: "NhomZalo",
+    description: "Báo cáo ảnh 5S gửi theo tuần qua Zalo",
+    columns: [
+      { header: "Khoa / Phòng", key: "khoa_phong", width: 26 },
+      {
+        header: "Tuần (ngày đầu tuần)",
+        key: "tuan",
+        width: 18,
+        align: "center",
+        isDate: true,
+      },
+      { header: "Vị trí chụp", key: "vi_tri_chup", width: 30 },
+      {
+        header: "Số lượng ảnh",
+        key: "so_luong_anh",
+        width: 14,
+        align: "center",
+      },
+      { header: "Chất lượng", key: "chat_luong", width: 14, align: "center" },
+      { header: "Ghi chú", key: "ghi_chu", width: 26 },
+    ],
+  },
+  {
+    key: "lich-danh-gia",
+    label: "Lịch đánh giá",
+    sheetName: "Lịch đánh giá",
+    fileName: "LichDanhGia",
+    description: "Lịch phân công đánh giá 5S",
+    columns: [
+      { header: "Khoa / Phòng", key: "khoa_phong", width: 26 },
+      { header: "Vị trí", key: "vi_tri", width: 20 },
+      { header: "Đợt đánh giá", key: "dot_danh_gia", width: 22 },
+      { header: "Loại lịch", key: "loai_lich", width: 18, align: "center" },
+      {
+        header: "Thứ trong tuần",
+        key: "thu_trong_tuan",
+        width: 14,
+        align: "center",
+      },
+      {
+        header: "Ngày bắt đầu lên lịch",
+        key: "ngay_bat_dau",
+        width: 17,
+        align: "center",
+        isDate: true,
+      },
+      {
+        header: "Ngày thực hiện",
+        key: "ngay_thuc_hien",
+        width: 15,
+        align: "center",
+        isDate: true,
+      },
+      { header: "Người thực hiện", key: "nguoi_thuc_hien", width: 18 },
+      { header: "Ghi chú", key: "ghi_chu", width: 26 },
+    ],
+  },
+  {
+    key: "ket-qua-5s",
+    label: "Kết quả 5S",
+    sheetName: "Kết quả 5S",
+    fileName: "KetQua5S",
+    description: "Kết quả các lượt đánh giá bảng kiểm",
+    columns: [
+      { header: "Khoa / Phòng", key: "khoa_phong", width: 26 },
+      { header: "Vị trí", key: "vi_tri", width: 20 },
+      { header: "Vị trí chi tiết", key: "vi_tri_chi_tiet", width: 18 },
+      { header: "Người đánh giá", key: "nguoi_danh_gia", width: 18 },
+      {
+        header: "Ngày đánh giá",
+        key: "ngay_danh_gia",
+        width: 15,
+        align: "center",
+        isDate: true,
+      },
+      { header: "Đợt đánh giá", key: "dot_danh_gia", width: 22 },
+      {
+        header: "Số tiêu chí đạt",
+        key: "so_tieu_chi_dat",
+        width: 14,
+        align: "center",
+      },
+      {
+        header: "Tổng tiêu chí",
+        key: "so_tieu_chi_tong",
+        width: 13,
+        align: "center",
+      },
+      { header: "Tỷ lệ %", key: "ty_le_pct", width: 11, align: "center" },
+      { header: "Xếp loại", key: "xep_loai", width: 16, align: "center" },
+    ],
+  },
+  {
+    key: "anh-5s",
+    label: "Ảnh 5S",
+    sheetName: "Ảnh 5S",
+    fileName: "Anh5S",
+    description: "Toàn bộ ảnh minh chứng + ảnh gửi độc lập",
+    columns: [
+      { header: "Khoa / Phòng", key: "khoa_phong", width: 26 },
+      { header: "Vị trí", key: "vi_tri", width: 20 },
+      {
+        header: "Ngày chụp",
+        key: "ngay_chup",
+        width: 14,
+        align: "center",
+        isDate: true,
+      },
+      { header: "Người gửi", key: "nguoi_gui", width: 18 },
+      { header: "Kết quả", key: "ket_qua", width: 14, align: "center" },
+      { header: "Tên file", key: "ten_file", width: 26 },
+      {
+        header: "Trạng thái ảnh",
+        key: "trang_thai_anh",
+        width: 15,
+        align: "center",
+      },
+      { header: "Ghi chú", key: "ghi_chu", width: 26 },
+    ],
+  },
+];
+
+export const BANG_BY_KEY: Record<BangKey, BangDefinition> = Object.fromEntries(
+  BANG_LIST.map((b) => [b.key, b]),
+) as Record<BangKey, BangDefinition>;

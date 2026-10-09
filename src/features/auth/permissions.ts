@@ -8,6 +8,7 @@ export const PERMISSION = {
   PHAN_QUYEN_TAI_KHOAN: 'phan-quyen-tai-khoan',
   CAU_HINH_DOT_DANH_GIA: 'cau-hinh-dot-danh-gia',
   CAU_HINH_PHONG_KHOA_KIEM_TRA: 'cau-hinh-phong-khoa-kiem-tra',
+  XUAT_DU_LIEU: 'xuat-du-lieu',
 
   // Phòng QLCL
   XEM_TONG_HOP_TAT_CA_KHOA: 'xem-tong-hop-tat-ca-khoa',
@@ -84,3 +85,7 @@ export const PERM_QUAN_LY_TAI_KHOAN = [
   PERMISSION.TAO_TAI_KHOAN_NHAN_VIEN,
   PERMISSION.XEM_TOAN_QUYEN_BAO_CAO_LICH,
 ] as const
+
+// Xuất dữ liệu: CHỈ Admin — không nằm trong bất kỳ nhóm nào khác (kể cả
+// Lãnh đạo dù đang giữ XEM_TOAN_QUYEN_BAO_CAO_LICH cũng KHÔNG có quyền này).
+export const PERM_XUAT_DU_LIEU = [PERMISSION.XUAT_DU_LIEU] as const

@@ -62,7 +62,7 @@ export default function TodayLichBanner() {
   return (
     <div
       onClick={() => navigate("/lich-danh-gia")}
-      className="flex cursor-pointer flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-gradient-to-r from-[#1B3A5C] to-[#185FA5] px-4 py-2.5 text-[13px] text-white sm:px-6"
+      className="flex cursor-pointer flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-gradient-to-r from-[#1B3A5C] to-[#185FA5] px-4 py-2.5 text-[13px] text-white dark:border-b dark:border-gray-800 dark:bg-none dark:bg-gray-900 dark:text-gray-200 sm:px-6"
     >
       <span className="flex items-center gap-1.5">
         <CalendarDays size={14} className="shrink-0" />

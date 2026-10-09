@@ -18,6 +18,7 @@ import {
   MapPin,
   CalendarRange,
   ListChecks,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useAppSelector } from "../../app/hooks";
 import {
@@ -28,6 +29,7 @@ import {
   PERM_XEM_TIEN_DO_KP,
   PERM_CAU_HINH,
   PERM_QUAN_LY_TAI_KHOAN,
+  PERM_XUAT_DU_LIEU,
 } from "../../features/auth/permissions";
 import type { PermissionSlug } from "../../features/auth/permissions";
 
@@ -104,6 +106,12 @@ const navItems: NavItem[] = [
     permission: PERM_QUAN_LY_TAI_KHOAN,
   },
   {
+    to: "/xuat-du-lieu",
+    label: "Xuất dữ liệu",
+    icon: FileSpreadsheet,
+    permission: PERM_XUAT_DU_LIEU,
+  },
+  {
     label: "Cấu hình",
     icon: Settings,
     permission: PERM_CAU_HINH,
@@ -149,7 +157,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-gradient-to-r from-[#1B3A5C] to-[#185FA5] shadow-lg transition-all duration-200 ${
+      className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-gradient-to-r from-[#1B3A5C] to-[#185FA5] shadow-lg transition-all duration-200 dark:border-r dark:border-gray-800 dark:bg-none dark:bg-gray-900 dark:shadow-none ${
         open ? "w-64" : "w-[84px]"
       }`}
     >

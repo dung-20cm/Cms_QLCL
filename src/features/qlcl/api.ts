@@ -515,3 +515,18 @@ export function photoImageUrl(id: number): string {
   const base = apiClient.defaults.baseURL || "";
   return `${base}/api/photo-gallery/image/${id}?token=${encodeURIComponent(token)}`;
 }
+
+// -- Trang "Xuat du lieu" (CHI Admin) -- lay full du lieu 1 bang de xuat Excel.
+// Backend tra thang mang object phang (khong phan trang, khong bao ListData).
+export type XuatDuLieuRow = Record<string, string | number | null | undefined>;
+
+export async function fetchBangDuLieu(
+  bang: string,
+  params?: { tu_ngay?: string; den_ngay?: string },
+): Promise<XuatDuLieuRow[]> {
+  const res = await apiClient.get<Envelope<XuatDuLieuRow[]>>(
+    "/api/xuat-du-lieu/get-bang-du-lieu",
+    { params: clean({ bang, ...params }) },
+  );
+  return res.data.data;
+}
