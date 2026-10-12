@@ -12,11 +12,12 @@ import type { ConnectSheetData } from "./useConnectSheet";
 const STEP_LABEL: Record<string, string> = {
   connecting: "Đang mở cửa sổ đăng nhập Google...",
   "checking-quota": "Đang kiểm tra dung lượng Google Drive...",
+  "uploading-images": "Đang lưu ảnh thu nhỏ lên Google Drive...",
   creating: "Đang tạo file trên Google Sheet...",
 };
 
 export default function ConnectSheetModal({ c }: { c: ConnectSheetData }) {
-  const { open, step, error, estimate, resultUrl, fileTitle, progressText, closeModal, connect } = c;
+  const { open, step, error, estimate, resultUrl, fileTitle, progressText, notice, resultNote, hasImages, closeModal, connect } = c;
 
   const originCheck = checkGoogleOrigin();
   const busy = step === "connecting" || step === "checking-quota" || step === "creating";
@@ -40,6 +41,13 @@ export default function ConnectSheetModal({ c }: { c: ConnectSheetData }) {
             <ul className="mt-2 space-y-1 text-gray-500 dark:text-gray-400">
               <li>• {estimate.totalSheets} sheet, {estimate.totalRows.toLocaleString("vi-VN")} dòng dữ liệu</li>
               <li>• Ước tính dung lượng: <strong>~{formatBytes(estimate.bytes)}</strong></li>
+              {estimate.imageCount > 0 && (
+                <li>
+                  • {estimate.imageCount} ảnh thu nhỏ (~{formatBytes(estimate.imageBytes)}) sẽ được lưu
+                  trong thư mục <strong>{fileTitle}</strong> trên Google Drive của bạn (riêng tư, tính vào
+                  dung lượng Drive) để hiện trong cột "Ảnh"
+                </li>
+              )}
             </ul>
           </div>
 
@@ -53,6 +61,12 @@ export default function ConnectSheetModal({ c }: { c: ConnectSheetData }) {
             Địa chỉ trang hiện tại: <code>{originCheck.origin}</code> — phải trùng đúng với mục
             "Authorized JavaScript origins" của OAuth Client trên Google Cloud.
           </p>
+
+          {notice && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300">
+              {notice}
+            </div>
+          )}
 
           {originCheck.problem && step === "confirm" && (
             <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
@@ -96,6 +110,18 @@ export default function ConnectSheetModal({ c }: { c: ConnectSheetData }) {
           <p className="text-xs text-gray-400">
             Nếu tab mới chưa tự mở (trình duyệt chặn popup), bấm nút bên dưới để mở.
           </p>
+          {hasImages && (
+            <p className="max-w-sm rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300">
+              Lần đầu mở file, Google hiện thanh vàng <strong>"Cho phép truy cập"</strong> (vì cột Ảnh gọi
+              dữ liệu từ Drive) — bấm 1 lần để ảnh hiện ra. Ai cần xem ảnh phải có quyền truy cập thư mục
+              ảnh trên Drive.
+            </p>
+          )}
+          {resultNote && (
+            <p className="max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+              {resultNote}
+            </p>
+          )}
           {resultUrl && (
             <a
               href={resultUrl}

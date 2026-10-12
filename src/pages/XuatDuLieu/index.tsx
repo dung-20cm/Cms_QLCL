@@ -1,4 +1,6 @@
+import { useState } from "react";
 import {
+  Archive,
   CheckCheck,
   Database,
   Download,
@@ -18,6 +20,7 @@ import {
 } from "../../components/ui/PageShell";
 import BangCard from "./BangCard";
 import ConnectSheetModal from "./ConnectSheetModal";
+import ZipAnhModal from "./ZipAnhModal";
 import { BANG_LIST } from "./constants";
 import { useConnectSheet } from "./useConnectSheet";
 import { useXuatDuLieuData } from "./useXuatDuLieuData";
@@ -38,10 +41,14 @@ export default function XuatDuLieu() {
     exportProgress,
     error,
     done,
+    notice,
+    anhMode,
+    setAnhMode,
     handleExport,
   } = t;
 
   const connectSheet = useConnectSheet();
+  const [zipOpen, setZipOpen] = useState(false);
 
   return (
     <div>
@@ -53,7 +60,7 @@ export default function XuatDuLieu() {
           <>
             <button
               className={btnSecondary}
-              onClick={() => connectSheet.openModal(selected, tuNgay, denNgay)}
+              onClick={() => connectSheet.openModal(selected, tuNgay, denNgay, anhMode)}
               disabled={selected.size === 0}
             >
               <Link2 size={15} /> Kết nối Sheet
@@ -77,6 +84,12 @@ export default function XuatDuLieu() {
       {done && !error && (
         <div className="animate-fade-in mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400">
           <CheckCheck size={16} /> Đã xuất file Excel thành công.
+        </div>
+      )}
+
+      {notice && !error && (
+        <div className="animate-fade-in mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300">
+          {notice}
         </div>
       )}
 
@@ -107,6 +120,28 @@ export default function XuatDuLieu() {
           Bỏ trống = lấy toàn bộ dữ liệu, không giới hạn thời gian
         </span>
       </div>
+
+      {/* Tuỳ chọn riêng cho bảng Ảnh 5S */}
+      {selected.has("anh-5s") && (
+        <div className="animate-fade-in mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+          <Field label="Ảnh trong file Excel / Google Sheet">
+            <select
+              className={inputCls}
+              value={anhMode}
+              onChange={(e) => setAnhMode(e.target.value as "thumb" | "none")}
+            >
+              <option value="thumb">Nhúng ảnh thu nhỏ vào ô (nhẹ, xem ngay)</option>
+              <option value="none">Không nhúng ảnh (chỉ dữ liệu chữ — nhanh nhất)</option>
+            </select>
+          </Field>
+          <button className={btnSecondary} onClick={() => setZipOpen(true)}>
+            <Archive size={15} /> Tải ZIP ảnh gốc
+          </button>
+          <span className="max-w-md pb-2 text-xs text-gray-400">
+            Số ảnh lớn (hàng nghìn) nên dùng ZIP ảnh gốc: máy chủ gói và gửi thẳng, không cần xử lý ảnh trên trình duyệt.
+          </span>
+        </div>
+      )}
 
       {/* Chọn bảng dữ liệu */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -150,6 +185,14 @@ export default function XuatDuLieu() {
       )}
 
       <ConnectSheetModal c={connectSheet} />
+      {zipOpen && (
+        <ZipAnhModal
+          open
+          onClose={() => setZipOpen(false)}
+          tuNgay={tuNgay}
+          denNgay={denNgay}
+        />
+      )}
     </div>
   );
 }

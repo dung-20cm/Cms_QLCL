@@ -1,7 +1,6 @@
 export interface FormState {
   id?: number;
   username: string;
-  password: string;
   email: string;
   mobile: string;
   khoa_id: number | "";
@@ -10,5 +9,5 @@ export interface FormState {
 }
 
 export type FormErrors = Partial<
-  Record<"email" | "username" | "password" | "khoa_id" | "role_id", string>
+  Record<"email" | "username" | "khoa_id" | "role_id", string>
 >;

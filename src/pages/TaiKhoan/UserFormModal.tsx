@@ -104,33 +104,16 @@ export default function UserFormModal({ t }: { t: TaiKhoanData }) {
               </p>
             )}
           </Field>
-          {/* Không cho đổi mật khẩu ở modal Sửa -- đã có luồng đổi mật khẩu
-              riêng (xem ChangePasswordModal), nên chỉ hiện ô này khi TẠO MỚI. */}
+          {/* Tạo mới không nhập mật khẩu: mật khẩu mặc định = tên đăng nhập (xem
+              handleSubmit). Đổi mật khẩu đã có luồng riêng (ChangePasswordModal). */}
           {!form.id && (
-            <Field label="Mật khẩu *">
-              <div className="relative">
-                <KeyRound
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  className={`${inputCls} w-full pl-9 ${fieldErrors.password ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
-                  value={form.password}
-                  onChange={(e) => {
-                    setForm({ ...form, password: e.target.value });
-                    setFieldErrors((fe) => ({ ...fe, password: undefined }));
-                  }}
-                  placeholder="Tối thiểu 6 ký tự"
-                />
-              </div>
-              {fieldErrors.password && (
-                <p className="mt-1 text-[11px] text-red-500">
-                  {fieldErrors.password}
-                </p>
-              )}
-            </Field>
+            <p className="flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300 sm:col-span-2">
+              <KeyRound size={14} className="mt-0.5 shrink-0" />
+              <span>
+                Mật khẩu mặc định của tài khoản mới <b>trùng với tên đăng nhập</b>.
+                Hãy nhắc người dùng đổi mật khẩu sau lần đăng nhập đầu tiên.
+              </span>
+            </p>
           )}
 
           <Field label="Khoa / Phòng *">

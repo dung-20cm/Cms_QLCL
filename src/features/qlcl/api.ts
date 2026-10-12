@@ -530,3 +530,44 @@ export async function fetchBangDuLieu(
   );
   return res.data.data;
 }
+
+// Anh thu nho (~240x180, vai KB) cua 1 anh minh chung -- nhe hon anh goc ~50 lan,
+// dung de nhung vao Excel/Google Sheet (backend tu tao + cache lan dau can toi).
+export function photoThumbUrl(id: number): string {
+  const token = getToken() || "";
+  const base = apiClient.defaults.baseURL || "";
+  return `${base}/api/photo-gallery/thumb/${id}?token=${encodeURIComponent(token)}`;
+}
+
+// -- Goi ZIP anh goc bang "Anh 5S" (CHI Admin) -- backend stream thang ve trinh duyet.
+export interface ZipAnh5SInfo {
+  count: number; // so anh se dua vao ZIP
+  bytes: number; // tong dung luong anh luu tren dia (chua tinh anh cu tren Cloudinary)
+  missing: number; // anh mat file tren dia (bi bo qua)
+  remote: number; // anh cu tren Cloudinary (backend tai ve de dua vao ZIP, khong tinh vao bytes)
+}
+
+export async function fetchZipAnh5SInfo(params?: {
+  tu_ngay?: string;
+  den_ngay?: string;
+}): Promise<ZipAnh5SInfo> {
+  const res = await apiClient.get<Envelope<ZipAnh5SInfo>>(
+    "/api/xuat-du-lieu/zip-anh-5s-info",
+    { params: clean(params) },
+  );
+  return res.data.data;
+}
+
+// Link tai truc tiep (trinh duyet tu tai, khong qua bo nho cua trang) -- token gan
+// trong query vi link khong gui duoc header.
+export function zipAnh5SUrl(params: {
+  tu_ngay?: string;
+  den_ngay?: string;
+  ten?: string;
+}): string {
+  const token = getToken() || "";
+  const base = apiClient.defaults.baseURL || "";
+  const q = new URLSearchParams({ token });
+  for (const [k, v] of Object.entries(params)) if (v) q.set(k, v);
+  return `${base}/api/xuat-du-lieu/zip-anh-5s?${q.toString()}`;
+}

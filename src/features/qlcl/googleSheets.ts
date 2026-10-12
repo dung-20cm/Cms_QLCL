@@ -103,6 +103,12 @@ function waitForGis(): Promise<NonNullable<Window["google"]>> {
 }
 
 let cachedTokenClient: GoogleTokenClient | null = null;
+// resolve/reject của LẦN XIN TOKEN ĐANG CHẠY. Token client của Google chỉ nhận
+// callback 1 lần lúc khởi tạo, nên callback đó phải gọi vào các biến này (luôn
+// trỏ tới lần xin hiện tại) -- nếu buộc cứng vào resolve của lần xin đầu tiên thì
+// bấm "Thử lại"/kết nối lần 2 trong cùng phiên trang sẽ treo mãi ở bước mở cửa sổ Google.
+let pendingResolve: ((token: string) => void) | null = null;
+let pendingReject: ((err: GoogleSheetsError) => void) | null = null;
 
 // Mở popup chọn tài khoản Google + xin quyền (Sheets tạo file + xem dung lượng
 // Drive). Trả về access token; ném lỗi tiếng Việt nếu người dùng từ chối/đóng
@@ -118,35 +124,39 @@ export async function requestGoogleAccessToken(): Promise<string> {
   if (originCheck.problem) throw new GoogleSheetsError(originCheck.problem);
   const google = await waitForGis();
 
-  return new Promise<string>((resolve, reject) => {
-    if (!cachedTokenClient) {
-      cachedTokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: SCOPES,
-        callback: (resp) => {
-          if (resp.access_token) resolve(resp.access_token);
-          else
-            reject(
-              new GoogleSheetsError(
-                resp.error_description ||
-                  "Bạn đã từ chối cấp quyền hoặc đóng cửa sổ đăng nhập Google.",
-              ),
-            );
-        },
-        error_callback: (err) => {
-          reject(
+  if (!cachedTokenClient) {
+    cachedTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: SCOPES,
+      callback: (resp) => {
+        if (resp.access_token) pendingResolve?.(resp.access_token);
+        else
+          pendingReject?.(
             new GoogleSheetsError(
-              err?.type === "popup_closed"
-                ? "Cửa sổ đăng nhập Google đã bị đóng trước khi hoàn tất."
-                : err?.message || "Không thể mở cửa sổ đăng nhập Google.",
+              resp.error_description ||
+                "Bạn đã từ chối cấp quyền hoặc đóng cửa sổ đăng nhập Google.",
             ),
           );
-        },
-      });
-    }
+      },
+      error_callback: (err) => {
+        pendingReject?.(
+          new GoogleSheetsError(
+            err?.type === "popup_closed"
+              ? "Cửa sổ đăng nhập Google đã bị đóng trước khi hoàn tất."
+              : err?.message || "Không thể mở cửa sổ đăng nhập Google.",
+          ),
+        );
+      },
+    });
+  }
+  const client = cachedTokenClient;
+
+  return new Promise<string>((resolve, reject) => {
+    pendingResolve = resolve;
+    pendingReject = reject;
     // prompt: "" -- để Google tự quyết định (bỏ qua màn chọn tài khoản nếu chỉ
     // có 1 tài khoản Google đang đăng nhập sẵn trên trình duyệt này).
-    cachedTokenClient.requestAccessToken({ prompt: "" });
+    client.requestAccessToken({ prompt: "" });
   });
 }
 
@@ -220,12 +230,132 @@ export interface SheetTableData {
   imageColumn?: number;
 }
 
-// Công thức hiện ảnh trong ô Google Sheet từ thumbnail ĐÃ NHÚNG SẴN dạng data
-// URI (base64) -- không cần URL công khai, không cần upload lên Drive: ảnh nằm
-// luôn trong chính file Sheet nên mở ở đâu, ai có quyền xem Sheet cũng thấy
-// ảnh, không phụ thuộc backend nội bộ hay token hết hạn.
-export function buildImageFormula(dataUri: string): string {
-  return `=IMAGE("${dataUri}")`;
+// Công thức hiện ảnh trong ô Google Sheet từ 1 file ảnh ĐÃ NẰM TRONG GOOGLE DRIVE
+// (xem uploadThumbsToDrive). Đã thử trên Google Sheet thật (2026-10):
+//  - IMAGE("data:image/...;base64,...")        -> #VALUE! (Sheets KHÔNG hỗ trợ data URI)
+//  - IMAGE("drive.google.com/uc?...&id=...")   -> ô trống, không hiện ảnh
+//  - IMAGE("lh3.googleusercontent.com/d/<id>") -> HIỆN ẢNH, kể cả khi file Drive để
+//    riêng tư (Sheets lấy ảnh bằng quyền của người đang xem) -- nên KHÔNG cần bật
+//    chia sẻ công khai cho ảnh bệnh viện.
+// Lần đầu mở file, Google hiện thanh vàng "Cho phép truy cập" (công thức gọi dữ
+// liệu ngoài) -- bấm 1 lần là hiện ảnh.
+export function buildImageFormula(driveFileId: string): string {
+  return `=IMAGE("https://lh3.googleusercontent.com/d/${driveFileId}")`;
+}
+
+// ── Tải ảnh thu nhỏ lên Google Drive (drive.file: chỉ thấy/sửa file do chính app tạo) ──
+export async function createDriveFolder(token: string, name: string): Promise<string> {
+  const data = await googleFetch("https://www.googleapis.com/drive/v3/files?fields=id", token, {
+    method: "POST",
+    body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder" }),
+  });
+  return data.id as string;
+}
+
+async function uploadJpegToDrive(
+  token: string,
+  folderId: string,
+  name: string,
+  blob: Blob,
+): Promise<string> {
+  const boundary = `anh5s${Math.random().toString(36).slice(2)}`;
+  const metadata = JSON.stringify({ name, parents: [folderId], mimeType: "image/jpeg" });
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
+    `--${boundary}\r\nContent-Type: image/jpeg\r\n\r\n`,
+    blob,
+    `\r\n--${boundary}--`,
+  ]);
+  // Thử lại tối đa 2 lần khi Google báo quá tải/lỗi tạm thời (429, 5xx).
+  let lastErr = "Tải ảnh lên Drive thất bại";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": `multipart/related; boundary=${boundary}`,
+        },
+        body,
+      },
+    );
+    if (res.ok) return (await res.json()).id as string;
+    let msg = `Drive lỗi (${res.status})`;
+    try {
+      msg = (await res.json())?.error?.message || msg;
+    } catch {
+      // giữ message mặc định
+    }
+    lastErr = msg;
+    if (res.status !== 429 && res.status < 500) break; // lỗi vĩnh viễn (quyền, dung lượng...) -> không thử lại
+    await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+  }
+  throw new GoogleSheetsError(lastErr);
+}
+
+export interface DriveUploadResult {
+  ids: (string | null)[]; // id file Drive của từng ảnh, null = tải lên lỗi
+  failed: number;
+  firstError: string | null;
+}
+
+// Tải lần lượt nhiều ảnh thu nhỏ vào 1 thư mục Drive, tối đa 5 ảnh song song.
+// Ảnh nào lỗi chỉ bị bỏ qua (ô hiện chữ), KHÔNG làm hỏng cả lần kết nối.
+export async function uploadThumbsToDrive(
+  token: string,
+  folderId: string,
+  items: { name: string; blob: Blob | null }[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<DriveUploadResult> {
+  const ids: (string | null)[] = new Array(items.length).fill(null);
+  let next = 0;
+  let done = 0;
+  let failed = 0;
+  let firstError: string | null = null;
+
+  async function worker() {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      const it = items[i];
+      if (!it.blob) {
+        failed += 1;
+      } else {
+        try {
+          ids[i] = await uploadJpegToDrive(token, folderId, it.name, it.blob);
+        } catch (err) {
+          failed += 1;
+          if (!firstError) firstError = err instanceof Error ? err.message : String(err);
+        }
+      }
+      done += 1;
+      onProgress?.(done, items.length);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(5, items.length) }, () => worker()));
+  return { ids, failed, firstError };
+}
+
+// Chuyển file (Sheet vừa tạo) vào thư mục -- để Sheet và thư mục ảnh nằm cùng 1 chỗ.
+// Không quan trọng: lỗi ở đây chỉ bỏ qua (Sheet vẫn dùng được, nằm ở "My Drive").
+export async function moveDriveFileToFolder(token: string, fileId: string, folderId: string) {
+  try {
+    const meta = await googleFetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`,
+      token,
+    );
+    const remove = ((meta?.parents as string[]) || []).join(",");
+    await googleFetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${folderId}${
+        remove ? `&removeParents=${remove}` : ""
+      }`,
+      token,
+      { method: "PATCH", body: "{}" },
+    );
+  } catch {
+    // bỏ qua
+  }
 }
 
 // Kích thước ô ảnh (pixel) trên Google Sheet -- vừa khung thumbnail 150x110.

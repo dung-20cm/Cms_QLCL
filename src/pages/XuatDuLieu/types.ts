@@ -27,3 +27,6 @@ export interface BangDefinition {
   fileName: string;
   columns: BangColumn[];
 }
+
+// Cách đưa ảnh vào file xuất của bảng "Ảnh 5S"
+export type AnhMode = "thumb" | "none";

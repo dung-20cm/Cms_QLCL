@@ -158,7 +158,6 @@ export function useTaiKhoanData() {
     setForm({
       id: u.id,
       username: u.username,
-      password: "",
       email: u.email || "",
       mobile: u.mobile || "",
       khoa_id: u.khoa_id ?? "",
@@ -182,8 +181,9 @@ export function useTaiKhoanData() {
       await createUpdateUser({
         id: form.id,
         username: form.username.trim(),
-        // chỉ gửi password khi có nhập (sửa mà bỏ trống = giữ mật khẩu cũ)
-        ...(form.password ? { password: form.password } : {}),
+        // Tạo mới: mật khẩu mặc định = tên đăng nhập (người dùng tự đổi sau ở
+        // ChangePasswordModal). Sửa: không gửi password => backend giữ mật khẩu cũ.
+        ...(form.id ? {} : { password: form.username.trim() }),
         email: form.email.trim() || null,
         mobile: form.mobile.trim() || null,
         khoa_id: form.khoa_id === "" ? null : Number(form.khoa_id),

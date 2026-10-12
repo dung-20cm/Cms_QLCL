@@ -18,7 +18,6 @@ export const roleBadge: Record<string, string> = {
 
 export const emptyForm: FormState = {
   username: "",
-  password: "",
   email: "",
   mobile: "",
   khoa_id: "",

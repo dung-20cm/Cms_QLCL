@@ -54,8 +54,6 @@ export function validateForm(f: FormState): FormErrors {
   const errs: FormErrors = {};
   if (!f.email.trim()) errs.email = "Vui lòng nhập họ và tên";
   if (!f.username.trim()) errs.username = "Vui lòng nhập tên đăng nhập";
-  if (!f.id && !f.password.trim())
-    errs.password = "Vui lòng nhập mật khẩu cho tài khoản mới";
   if (f.khoa_id === "") errs.khoa_id = "Vui lòng chọn khoa/phòng";
   if (f.role_id === "") errs.role_id = "Vui lòng chọn quyền (role)";
   return errs;

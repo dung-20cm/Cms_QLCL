@@ -11,6 +11,12 @@ import type { BangDefinition, BangKey } from "./types";
 // Icon riêng cho từng nút chọn bảng ở trang Xuất dữ liệu -- tách khỏi
 // BangDefinition (types.ts không import JSX/component) để constants.ts giữ
 // vai trò duy nhất khai báo cấu hình.
+// Ngưỡng số ảnh tối đa để NHÚNG ảnh vào file -- vượt ngưỡng thì chỉ xuất dữ liệu chữ
+// (file nhúng hàng nghìn ảnh rất nặng, mở chậm, Google Sheet còn giới hạn kích thước
+// ghi). Cần ảnh số lượng lớn thì dùng gói ZIP ảnh gốc.
+export const EXCEL_EMBED_MAX = 1500;
+export const SHEET_EMBED_MAX = 300;
+
 export const BANG_ICON: Record<BangKey, typeof Users> = {
   "tai-khoan": Users,
   "hanh-dong-kp": Wrench,
@@ -190,6 +196,7 @@ export const BANG_LIST: BangDefinition[] = [
       { header: "Người gửi", key: "nguoi_gui", width: 18 },
       { header: "Kết quả", key: "ket_qua", width: 14, align: "center" },
       { header: "Tên file", key: "ten_file", width: 26 },
+      { header: "Đường dẫn trong ZIP", key: "zip_path", width: 52 },
       {
         header: "Trạng thái ảnh",
         key: "trang_thai_anh",
