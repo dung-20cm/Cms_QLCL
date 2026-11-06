@@ -72,7 +72,7 @@ export default function UserTable({ t }: { t: TaiKhoanData }) {
                   <td className="px-4 py-3">
                     {role ? (
                       <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${roleBadge[role.slug] || roleBadge["nhan-vien"]}`}
+                        className={`inline-block max-w-64 rounded-2xl px-2.5 py-1 text-xs font-medium leading-snug ${roleBadge[role.slug] || roleBadge["nhan-vien"]}`}
                       >
                         {role.name}
                       </span>

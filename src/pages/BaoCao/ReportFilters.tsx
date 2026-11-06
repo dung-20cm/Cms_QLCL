@@ -1,6 +1,7 @@
 import { Field, inputCls } from "../../components/ui/PageShell";
 import SearchableSelect from "../../components/ui/SearchableSelect";
 import type { BaoCaoData } from "./useBaoCaoData";
+import DateInput from "../../components/ui/DateInput";
 
 // Bộ lọc "chọn dữ liệu" — nội dung đổi hẳn theo rptType đang chọn (5 nhánh dữ
 // liệu khác nhau). Nhận nguyên object state từ useBaoCaoData() thay vì tách
@@ -126,16 +127,14 @@ export default function ReportFilters({ bc }: { bc: BaoCaoData }) {
             />
           </Field>
           <Field label="Từ ngày">
-            <input
-              type="date"
+            <DateInput
               className={inputCls}
               value={dvFrom}
               onChange={(e) => setDvFrom(e.target.value)}
             />
           </Field>
           <Field label="Đến ngày">
-            <input
-              type="date"
+            <DateInput
               className={inputCls}
               value={dvTo}
               onChange={(e) => setDvTo(e.target.value)}

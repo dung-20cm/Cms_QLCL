@@ -2,6 +2,7 @@ import Sidebar from './Sidebar'
 import Header from './Header'
 import TodayLichBanner from './TodayLichBanner'
 import PageTransition from './PageTransition'
+import Copyright from './Copyright'
 import ToastContainer from '../ui/ToastContainer'
 import { useAppSelector } from '../../app/hooks'
 
@@ -16,13 +17,14 @@ export default function AppLayout() {
       <Sidebar />
       <ToastContainer />
       <div
-        className={`transition-all duration-200 ${open ? 'ml-64' : 'ml-[84px]'}`}
+        className={`flex min-h-screen flex-col transition-all duration-200 ${open ? 'ml-64' : 'ml-[84px]'}`}
       >
         <Header />
         <TodayLichBanner />
-        <main className="p-4 sm:p-6">
+        <main className="flex-1 p-4 sm:p-6">
           <PageTransition />
         </main>
+        <Copyright className="px-4 pb-4 pt-2 sm:px-6" />
       </div>
     </div>
   )

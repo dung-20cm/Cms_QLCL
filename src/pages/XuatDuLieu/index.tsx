@@ -24,6 +24,7 @@ import ZipAnhModal from "./ZipAnhModal";
 import { BANG_LIST } from "./constants";
 import { useConnectSheet } from "./useConnectSheet";
 import { useXuatDuLieuData } from "./useXuatDuLieuData";
+import DateInput from "../../components/ui/DateInput";
 
 export default function XuatDuLieu() {
   const t = useXuatDuLieuData();
@@ -96,16 +97,14 @@ export default function XuatDuLieu() {
       {/* Bộ lọc khoảng thời gian */}
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <Field label="Từ ngày">
-          <input
-            type="date"
+          <DateInput
             className={inputCls}
             value={tuNgay}
             onChange={(e) => setTuNgay(e.target.value)}
           />
         </Field>
         <Field label="Đến ngày">
-          <input
-            type="date"
+          <DateInput
             className={inputCls}
             value={denNgay}
             onChange={(e) => setDenNgay(e.target.value)}

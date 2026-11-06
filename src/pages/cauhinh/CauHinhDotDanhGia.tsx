@@ -17,6 +17,7 @@ import { fetchDotDanhGiaList, createUpdateDotDanhGia, deleteDotDanhGia } from '.
 import type { DotDanhGia } from '../../features/qlcl/types'
 import { useIsViewOnly } from '../../features/auth/usePermission'
 import { useToast } from '../../features/ui/useToast'
+import DateInput from "../../components/ui/DateInput";
 
 interface FormState {
   id?: number
@@ -285,8 +286,7 @@ export default function CauHinhDotDanhGia() {
               />
             </Field>
             <Field label="Từ ngày">
-              <input
-                type="date"
+              <DateInput
                 className={inputCls}
                 value={form.tu_ngay}
                 max={form.den_ngay || undefined}
@@ -294,8 +294,7 @@ export default function CauHinhDotDanhGia() {
               />
             </Field>
             <Field label="Đến ngày">
-              <input
-                type="date"
+              <DateInput
                 className={inputCls}
                 value={form.den_ngay}
                 min={form.tu_ngay || undefined}

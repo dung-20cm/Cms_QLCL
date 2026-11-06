@@ -3,6 +3,7 @@ import MultiSelect from "../../components/ui/MultiSelect";
 import SearchableSelect from "../../components/ui/SearchableSelect";
 import { todayStr } from "./helpers";
 import type { BangKiemData } from "./useBangKiemData";
+import DateInput from "../../components/ui/DateInput";
 
 // Khối "Thông tin đánh giá" -- chọn khoa/vị trí/vị trí chi tiết/người đánh
 // giá/đợt/ngày trước khi chấm bảng kiểm.
@@ -126,8 +127,7 @@ export default function InfoForm({ bk }: { bk: BangKiemData }) {
           </select>
         </Field>
         <Field label="Ngày đánh giá">
-          <input
-            type="date"
+          <DateInput
             className={inputCls}
             max={todayStr()}
             value={ngay}

@@ -22,6 +22,7 @@ import { fetchTopTieuChiLoi } from '../features/qlcl/api'
 import type { TopTieuChiLoi } from '../features/qlcl/api'
 import { toneBadgeClass, toneFromPct } from '../features/qlcl/types'
 import { loadDanhGia } from '../features/qlcl/danhGiaSlice'
+import DateInput from "../components/ui/DateInput";
 
 // Thứ tự + tên/màu cố định 5 nhóm 5S — khớp bảng màu file mẫu 5S_Dashboard_BVTB_v4
 const S_META: Record<string, { name: string; color: string }> = {
@@ -290,8 +291,8 @@ export default function XuHuong() {
 
       {/* ── Bộ lọc ── */}
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        <Field label="Từ ngày"><input type="date" className={inputCls} value={fFrom} onChange={(e) => setFFrom(e.target.value)} /></Field>
-        <Field label="Đến ngày"><input type="date" className={inputCls} value={fTo} onChange={(e) => setFTo(e.target.value)} /></Field>
+        <Field label="Từ ngày"><DateInput className={inputCls} value={fFrom} onChange={(e) => setFFrom(e.target.value)} /></Field>
+        <Field label="Đến ngày"><DateInput className={inputCls} value={fTo} onChange={(e) => setFTo(e.target.value)} /></Field>
         <Field label="Khoa / Phòng">
           <SearchableSelect
             value={fKhoa}

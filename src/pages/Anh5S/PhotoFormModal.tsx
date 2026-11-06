@@ -11,6 +11,7 @@ import SearchableSelect from "../../components/ui/SearchableSelect";
 import { photoImageUrl } from "../../features/qlcl/api";
 import { KET_QUA_ANH_OPTIONS } from "../../features/qlcl/types";
 import type { Anh5SData } from "./useAnh5SData";
+import DateInput from "../../components/ui/DateInput";
 
 // Modal thêm ảnh mới / sửa 1 lượt gửi ảnh.
 export default function PhotoFormModal({ a }: { a: Anh5SData }) {
@@ -101,8 +102,7 @@ export default function PhotoFormModal({ a }: { a: Anh5SData }) {
                 />
               </Field>
               <Field label="Ngày chụp">
-                <input
-                  type="date"
+                <DateInput
                   className={inputCls}
                   value={form.ngay_chup}
                   onChange={(e) =>

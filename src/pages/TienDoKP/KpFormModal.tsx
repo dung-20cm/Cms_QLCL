@@ -9,6 +9,7 @@ import {
 import SearchableSelect from "../../components/ui/SearchableSelect";
 import { S_IDS, S_META, TRANG_THAI } from "./constants";
 import type { TienDoKPData } from "./useTienDoKPData";
+import DateInput from "../../components/ui/DateInput";
 
 export default function KpFormModal({ t }: { t: TienDoKPData }) {
   const {
@@ -125,8 +126,7 @@ export default function KpFormModal({ t }: { t: TienDoKPData }) {
                 </select>
               </Field>
               <Field label="📅 Ngày phát hiện lỗi">
-                <input
-                  type="date"
+                <DateInput
                   className={inputCls}
                   value={form.ngayPhatHien}
                   onChange={(e) =>
@@ -214,8 +214,7 @@ export default function KpFormModal({ t }: { t: TienDoKPData }) {
             </select>
           </Field>
           <Field label="Hạn hoàn thành">
-            <input
-              type="date"
+            <DateInput
               className={inputCls}
               value={form.han}
               onChange={(e) => setForm((f) => ({ ...f, han: e.target.value }))}

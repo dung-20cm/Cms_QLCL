@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { clearAuthError, loginUser } from "../features/auth/authSlice";
+import Copyright from "../components/layout/Copyright";
 
 interface LocationState {
   from?: string;
@@ -47,8 +48,8 @@ export default function Login() {
   return (
     <div className="flex min-h-screen animate-fade-in bg-white dark:bg-gray-950">
       {/* Cột form */}
-      <div className="flex w-full flex-col justify-center px-6 py-12 sm:px-10 lg:w-1/2 lg:px-16 xl:px-24">
-        <div className="mx-auto w-full max-w-sm">
+      <div className="flex w-full flex-col px-6 py-6 sm:px-10 lg:w-1/2 lg:px-16 xl:px-24">
+        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-6">
           {/* <div className="mb-8 flex items-center gap-2.5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
               5S
@@ -160,10 +161,17 @@ export default function Login() {
           </form>
 
           <p className="mt-8 text-center text-xs text-gray-400">
-            Chưa có tài khoản? Liên hệ trưởng khoa hoặc phòng quản lý chất lương
-            để được cấp tài khoản.
+            <span className="block">Bạn chưa có tài khoản?</span>
+            <span className="block">
+              <span className="inline-block">
+                Hãy liên hệ trưởng khoa hoặc phòng quản lý chất lượng
+              </span>{" "}
+              <span className="inline-block">để được cấp tài khoản.</span>
+            </span>
           </p>
         </div>
+
+        <Copyright />
       </div>
 
       {/* Cột thương hiệu */}
@@ -185,9 +193,13 @@ export default function Login() {
           <h2 className="text-2xl font-semibold text-white">
             Bộ công cụ đánh giá điện tử 5S
           </h2>
-          <p className="mt-3 max-w-sm text-sm text-white/60">
-            Bệnh viện Đa khoa Thái Bình — Phòng Quản lý Chất lượng Theo dõi lịch
-            đánh giá, xu hướng và tiến độ khắc phục 5S
+          <p className="mt-3 max-w-lg text-sm text-white/60">
+            <span className="block text-balance">
+              Bệnh viện Đa khoa Thái Bình — Phòng Quản lý Chất lượng
+            </span>
+            <span className="block text-balance">
+              Theo dõi lịch đánh giá, xu hướng và tiến độ khắc phục 5S
+            </span>
           </p>
         </div>
       </div>

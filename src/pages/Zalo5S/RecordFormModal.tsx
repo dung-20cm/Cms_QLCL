@@ -8,6 +8,7 @@ import {
 import SearchableSelect from "../../components/ui/SearchableSelect";
 import { CHAT_LUONG_OPTIONS } from "./constants";
 import type { Zalo5SData } from "./useZalo5SData";
+import DateInput from "../../components/ui/DateInput";
 
 export default function RecordFormModal({ z }: { z: Zalo5SData }) {
   const {
@@ -62,8 +63,7 @@ export default function RecordFormModal({ z }: { z: Zalo5SData }) {
           />
         </Field>
         <Field label="Tuần (tự quy về thứ 2 đầu tuần)">
-          <input
-            type="date"
+          <DateInput
             className={inputCls}
             value={mTuan}
             onChange={(e) => setMTuan(e.target.value)}

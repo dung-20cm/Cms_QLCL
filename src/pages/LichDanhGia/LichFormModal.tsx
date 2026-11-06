@@ -10,6 +10,7 @@ import SearchableSelect from "../../components/ui/SearchableSelect";
 import { THU_LABEL } from "./constants";
 import { fmtVNFromDateStr } from "./dateUtils";
 import type { LichDanhGiaData } from "./useLichDanhGiaData";
+import DateInput from "../../components/ui/DateInput";
 
 // Modal thêm mới / sửa 1 buổi lịch đánh giá.
 export default function LichFormModal({ lg }: { lg: LichDanhGiaData }) {
@@ -97,8 +98,7 @@ export default function LichFormModal({ lg }: { lg: LichDanhGiaData }) {
             mType === "dinh_ky" ? "Ngày bắt đầu định kỳ" : "Ngày đánh giá"
           }
         >
-          <input
-            type="date"
+          <DateInput
             className={inputCls}
             value={mNgay}
             min={selectedDot?.tu_ngay || undefined}

@@ -1,6 +1,7 @@
 import { btnSecondary, Field, inputCls } from "../../components/ui/PageShell";
 import SearchableSelect from "../../components/ui/SearchableSelect";
 import type { Anh5SData } from "./useAnh5SData";
+import DateInput from "../../components/ui/DateInput";
 
 export default function FilterBar({ a }: { a: Anh5SData }) {
   const {
@@ -41,16 +42,14 @@ export default function FilterBar({ a }: { a: Anh5SData }) {
         ))}
       </div>
       <Field label="Từ ngày">
-        <input
-          type="date"
+        <DateInput
           className={inputCls}
           value={fFrom}
           onChange={(e) => setFFrom(e.target.value)}
         />
       </Field>
       <Field label="Đến ngày">
-        <input
-          type="date"
+        <DateInput
           className={inputCls}
           value={fTo}
           onChange={(e) => setFTo(e.target.value)}

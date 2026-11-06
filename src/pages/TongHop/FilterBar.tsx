@@ -3,6 +3,7 @@ import { btnSecondary, Field, inputCls } from "../../components/ui/PageShell";
 import SearchableSelect from "../../components/ui/SearchableSelect";
 import type { SortKey } from "./types";
 import type { TongHopData } from "./useTongHopData";
+import DateInput from "../../components/ui/DateInput";
 
 export default function FilterBar({ t }: { t: TongHopData }) {
   const {
@@ -29,16 +30,14 @@ export default function FilterBar({ t }: { t: TongHopData }) {
   return (
     <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
       <Field label="Từ ngày">
-        <input
-          type="date"
+        <DateInput
           className={inputCls}
           value={fFrom}
           onChange={(e) => setFFrom(e.target.value)}
         />
       </Field>
       <Field label="Đến ngày">
-        <input
-          type="date"
+        <DateInput
           className={inputCls}
           value={fTo}
           onChange={(e) => setFTo(e.target.value)}
